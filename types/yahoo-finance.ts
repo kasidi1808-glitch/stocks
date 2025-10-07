@@ -60,6 +60,7 @@ export interface Quote {
   preMarketChangePercent?: number | null
   hasPrePostMarketData?: boolean
 }
+ main
 
 export interface QuoteSummary {
   summaryDetail?: {
