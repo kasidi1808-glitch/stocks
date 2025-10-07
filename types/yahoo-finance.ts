@@ -62,6 +62,8 @@ export interface Quote {
   hasPrePostMarketData?: boolean
 }
 
+export type { Quote }
+
 type QuoteSummarySection = Record<string, number | string | null | undefined>
 
 type QuoteSummaryProfileSection = QuoteSummarySection & {
