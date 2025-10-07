@@ -32,7 +32,7 @@ export type Interval =
   | "1mo"
   | "3mo";
 
-export type Quote = {
+export interface Quote {
   symbol: string
   shortName?: string | null
   regularMarketPrice?: number | null
