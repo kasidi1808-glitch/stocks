@@ -31,3 +31,30 @@ export type Interval =
   | "1wk"
   | "1mo"
   | "3mo";
+
+export interface QuoteSummary {
+  summaryDetail?: {
+    open?: number | null
+    dayHigh?: number | null
+    dayLow?: number | null
+    volume?: number | null
+    trailingPE?: number | null
+    marketCap?: number | null
+    fiftyTwoWeekHigh?: number | null
+    fiftyTwoWeekLow?: number | null
+    averageVolume?: number | null
+    dividendYield?: number | null
+    beta?: number | null
+  }
+  defaultKeyStatistics?: {
+    trailingEps?: number | null
+  }
+  summaryProfile?: {
+    longBusinessSummary?: string | null
+    sector?: string | null
+    industryDisp?: string | null
+    country?: string | null
+    fullTimeEmployees?: number | null
+    website?: string | null
+  }
+}
