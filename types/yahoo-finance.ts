@@ -32,6 +32,7 @@ export type Interval =
   | "1mo"
   | "3mo";
 
+export type Quote = {
 export interface Quote {
   symbol: string
   shortName?: string | null
@@ -76,6 +77,10 @@ type QuoteSummaryProfileSection = QuoteSummarySection & {
 
 export type QuoteSummary = {
   summaryDetail?: QuoteSummarySection & {
+ main
+
+export interface QuoteSummary {
+  summaryDetail?: {
     open?: number | null
     dayHigh?: number | null
     dayLow?: number | null
@@ -93,4 +98,15 @@ export type QuoteSummary = {
   }
   summaryProfile?: QuoteSummaryProfileSection
   [section: string]: QuoteSummarySection | QuoteSummaryProfileSection | undefined
+  defaultKeyStatistics?: {
+    trailingEps?: number | null
+  }
+  summaryProfile?: {
+    longBusinessSummary?: string | null
+    sector?: string | null
+    industryDisp?: string | null
+    country?: string | null
+    fullTimeEmployees?: number | null
+    website?: string | null
+  }
 }
