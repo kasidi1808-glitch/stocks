@@ -1,8 +1,4 @@
- codex/find-repository-objective-ypklrv
 import type { Quote } from "@/types/yahoo-finance"
-=======
-
-main
 import { fmpFetch } from "./client"
 
 interface FmpQuote {

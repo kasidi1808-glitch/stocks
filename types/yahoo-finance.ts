@@ -32,8 +32,7 @@ export type Interval =
   | "1mo"
   | "3mo";
 
- codex/find-repository-objective-ypklrv
-export type Quote = {
+export interface Quote {
   symbol: string
   shortName?: string | null
   regularMarketPrice?: number | null
