@@ -74,6 +74,10 @@ type QuoteSummaryProfileSection = QuoteSummarySection & {
 
 export type QuoteSummary = {
   summaryDetail?: QuoteSummarySection & {
+ main
+
+export interface QuoteSummary {
+  summaryDetail?: {
     open?: number | null
     dayHigh?: number | null
     dayLow?: number | null
