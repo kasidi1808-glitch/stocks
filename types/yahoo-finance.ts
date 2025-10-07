@@ -32,7 +32,7 @@ export type Interval =
   | "1mo"
   | "3mo";
 
-export type Quote = {
+export interface Quote {
   symbol: string
   shortName?: string | null
   regularMarketPrice?: number | null
@@ -60,8 +60,9 @@ export type Quote = {
   preMarketChangePercent?: number | null
   hasPrePostMarketData?: boolean
 }
+ main
 
-export type QuoteSummary = {
+export interface QuoteSummary {
   summaryDetail?: {
     open?: number | null
     dayHigh?: number | null
