@@ -32,6 +32,36 @@ export type Interval =
   | "1mo"
   | "3mo";
 
+ codex/find-repository-objective-ypklrv
+export type Quote = {
+  symbol: string
+  shortName?: string | null
+  regularMarketPrice?: number | null
+  regularMarketChange?: number | null
+  regularMarketChangePercent?: number | null
+  regularMarketDayLow?: number | null
+  regularMarketDayHigh?: number | null
+  fiftyTwoWeekLow?: number | null
+  fiftyTwoWeekHigh?: number | null
+  marketCap?: number | null
+  regularMarketVolume?: number | null
+  averageDailyVolume3Month?: number | null
+  regularMarketOpen?: number | null
+  regularMarketPreviousClose?: number | null
+  trailingEps?: number | null
+  trailingPE?: number | null
+  fullExchangeName?: string | null
+  currency?: string | null
+  regularMarketTime?: number | null
+  postMarketPrice?: number | null
+  postMarketChange?: number | null
+  postMarketChangePercent?: number | null
+  preMarketPrice?: number | null
+  preMarketChange?: number | null
+  preMarketChangePercent?: number | null
+  hasPrePostMarketData?: boolean
+}
+ main
 
 export interface QuoteSummary {
   summaryDetail?: {
