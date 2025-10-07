@@ -1,7 +1,3 @@
-import { fmpFetch } from "./client"
-import type { Quote } from "@/node_modules/yahoo-finance2/dist/esm/src/modules/quote"
-import { fetchFmpQuote } from "./quotes"
-import type { QuoteSummary } from "@/types/yahoo-finance"
 
 interface FmpProfile {
   symbol: string
