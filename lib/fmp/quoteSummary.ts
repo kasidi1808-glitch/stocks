@@ -1,6 +1,4 @@
-import { fmpFetch } from "./client"
-import { fetchFmpQuote } from "./quotes"
-import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
+
 
 interface FmpProfile {
   symbol: string

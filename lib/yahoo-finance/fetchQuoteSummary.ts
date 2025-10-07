@@ -1,7 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache"
 import yahooFinance from "yahoo-finance2"
 import { fetchFmpQuoteSummary } from "@/lib/fmp/quoteSummary"
-import type { QuoteSummary } from "@/types/yahoo-finance"
 
 export async function fetchQuoteSummary(ticker: string): Promise<QuoteSummary> {
   noStore()

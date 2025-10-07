@@ -1,4 +1,4 @@
-import type { Quote } from "@/types/yahoo-finance"
+
 import { fmpFetch } from "./client"
 
 interface FmpQuote {
