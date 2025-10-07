@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import type { Quote } from "@/node_modules/yahoo-finance2/dist/esm/src/modules/quote"
+import type { Quote } from "@/types/yahoo-finance"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
