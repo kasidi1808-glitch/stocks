@@ -1,4 +1,4 @@
-import type { Quote } from "@/node_modules/yahoo-finance2/dist/esm/src/modules/quote"
+
 import { fmpFetch } from "./client"
 
 interface FmpQuote {

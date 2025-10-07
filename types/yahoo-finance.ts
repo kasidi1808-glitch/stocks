@@ -32,6 +32,7 @@ export type Interval =
   | "1mo"
   | "3mo";
 
+
 export interface QuoteSummary {
   summaryDetail?: {
     open?: number | null
