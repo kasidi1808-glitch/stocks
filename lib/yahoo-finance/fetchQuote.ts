@@ -1,5 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache"
 import yahooFinance from "yahoo-finance2"
+import { fetchFmpQuote } from "@/lib/fmp/quotes"
 
 import { fetchFmpQuote } from "@/lib/fmp/quotes"
 import type { Quote } from "@/types/yahoo-finance"
