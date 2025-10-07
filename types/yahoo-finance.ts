@@ -31,3 +31,59 @@ export type Interval =
   | "1wk"
   | "1mo"
   | "3mo";
+
+export type Quote = {
+  symbol: string
+  shortName?: string | null
+  regularMarketPrice?: number | null
+  regularMarketChange?: number | null
+  regularMarketChangePercent?: number | null
+  regularMarketDayLow?: number | null
+  regularMarketDayHigh?: number | null
+  fiftyTwoWeekLow?: number | null
+  fiftyTwoWeekHigh?: number | null
+  marketCap?: number | null
+  regularMarketVolume?: number | null
+  averageDailyVolume3Month?: number | null
+  regularMarketOpen?: number | null
+  regularMarketPreviousClose?: number | null
+  trailingEps?: number | null
+  trailingPE?: number | null
+  fullExchangeName?: string | null
+  currency?: string | null
+  regularMarketTime?: number | null
+  postMarketPrice?: number | null
+  postMarketChange?: number | null
+  postMarketChangePercent?: number | null
+  preMarketPrice?: number | null
+  preMarketChange?: number | null
+  preMarketChangePercent?: number | null
+  hasPrePostMarketData?: boolean
+}
+
+export type QuoteSummary = {
+  summaryDetail?: {
+    open?: number | null
+    dayHigh?: number | null
+    dayLow?: number | null
+    volume?: number | null
+    trailingPE?: number | null
+    marketCap?: number | null
+    fiftyTwoWeekHigh?: number | null
+    fiftyTwoWeekLow?: number | null
+    averageVolume?: number | null
+    dividendYield?: number | null
+    beta?: number | null
+  }
+  defaultKeyStatistics?: {
+    trailingEps?: number | null
+  }
+  summaryProfile?: {
+    longBusinessSummary?: string | null
+    sector?: string | null
+    industryDisp?: string | null
+    country?: string | null
+    fullTimeEmployees?: number | null
+    website?: string | null
+  }
+}
