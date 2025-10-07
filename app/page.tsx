@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DEFAULT_INTERVAL, DEFAULT_RANGE } from "@/lib/yahoo-finance/constants"
-import { Interval } from "@/types/yahoo-finance"
+import type { Interval, Quote } from "@/types/yahoo-finance"
 import { Suspense } from "react"
 import MarketsChart from "@/components/chart/MarketsChart"
 import Link from "next/link"
@@ -111,13 +111,13 @@ export default async function Home({
   const promises = tickers.map(({ symbol }) => fetchQuote(symbol))
   const results = await Promise.all(promises)
 
-  const resultsWithTitles = results.map((result, index) => ({
+  const resultsWithTitles: Quote[] = results.map((result, index) => ({
     ...result,
     shortName: tickers[index].shortName ?? result.shortName,
   }))
 
   const marketSentiment = getMarketSentiment(
-    resultsWithTitles[0].regularMarketChangePercent
+    resultsWithTitles[0].regularMarketChangePercent ?? 0
   )
 
   const sentimentColor =

@@ -87,7 +87,7 @@ function mapFmpQuoteToQuote(fmpQuote: FmpQuote): Quote {
     preMarketChange,
     preMarketChangePercent,
     hasPrePostMarketData:
-      postMarketPrice !== undefined || preMarketPrice !== undefined,
+      postMarketPrice != null || preMarketPrice != null,
   }
 
   return mappedQuote

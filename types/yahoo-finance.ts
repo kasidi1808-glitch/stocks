@@ -32,6 +32,7 @@ export type Interval =
   | "1mo"
   | "3mo";
 
+export type Quote = {
 export interface Quote {
   symbol: string
   shortName?: string | null
@@ -60,6 +61,20 @@ export interface Quote {
   preMarketChangePercent?: number | null
   hasPrePostMarketData?: boolean
 }
+
+type QuoteSummarySection = Record<string, number | string | null | undefined>
+
+type QuoteSummaryProfileSection = QuoteSummarySection & {
+  longBusinessSummary?: string | null
+  sector?: string | null
+  industryDisp?: string | null
+  country?: string | null
+  fullTimeEmployees?: number | null
+  website?: string | null
+}
+
+export type QuoteSummary = {
+  summaryDetail?: QuoteSummarySection & {
  main
 
 export interface QuoteSummary {
@@ -76,6 +91,11 @@ export interface QuoteSummary {
     dividendYield?: number | null
     beta?: number | null
   }
+  defaultKeyStatistics?: QuoteSummarySection & {
+    trailingEps?: number | null
+  }
+  summaryProfile?: QuoteSummaryProfileSection
+  [section: string]: QuoteSummarySection | QuoteSummaryProfileSection | undefined
   defaultKeyStatistics?: {
     trailingEps?: number | null
   }
