@@ -59,7 +59,7 @@ export type Quote = {
   preMarketChange?: number | null
   preMarketChangePercent?: number | null
   hasPrePostMarketData?: boolean
-}
+};
 
 type QuoteSummarySection = Record<string, number | string | null | undefined>
 
