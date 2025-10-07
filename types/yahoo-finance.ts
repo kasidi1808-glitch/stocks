@@ -32,6 +32,7 @@ export type Interval =
   | "1mo"
   | "3mo";
 
+ codex/find-repository-objective-ypklrv
 export type Quote = {
   symbol: string
   shortName?: string | null
@@ -60,6 +61,7 @@ export type Quote = {
   preMarketChangePercent?: number | null
   hasPrePostMarketData?: boolean
 }
+ main
 
 export interface QuoteSummary {
   summaryDetail?: {
