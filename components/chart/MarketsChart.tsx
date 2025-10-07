@@ -32,7 +32,7 @@ export default async function MarketsChart({
         {quote.shortName} ({quote.symbol}){" "}
         {quote.regularMarketPrice?.toLocaleString(undefined, {
           style: "currency",
-          currency: quote.currency,
+          currency: quote.currency ?? undefined,
         })}
       </div>
       {chart.quotes.length > 0 ? (
