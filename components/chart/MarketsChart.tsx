@@ -1,5 +1,5 @@
 import { fetchChartData } from "@/lib/yahoo-finance/fetchChartData"
-import { Interval, Range } from "@/types/yahoo-finance"
+import type { Interval, Range } from "@/types/yahoo-finance"
 import AreaClosedChart from "./AreaClosedChart"
 import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
 
