@@ -1,5 +1,4 @@
 import { DataTable } from "@/components/stocks/markets/data-table"
-import yahooFinance from "yahoo-finance2"
 import {
   Card,
   CardContent,
@@ -8,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DEFAULT_INTERVAL, DEFAULT_RANGE } from "@/lib/yahoo-finance/constants"
-import { Interval } from "@/types/yahoo-finance"
+import type { Interval, Quote } from "@/types/yahoo-finance"
 import { Suspense } from "react"
 import MarketsChart from "@/components/chart/MarketsChart"
 import Link from "next/link"
@@ -19,6 +18,7 @@ import {
   validateRange,
 } from "@/lib/yahoo-finance/fetchChartData"
 import { fetchStockSearch } from "@/lib/yahoo-finance/fetchStockSearch"
+import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
 
 function isMarketOpen() {
   const now = new Date()
@@ -106,19 +106,18 @@ export default async function Home({
     (searchParams?.interval as Interval) || DEFAULT_INTERVAL
   )
   const news = await fetchStockSearch("^DJI", 1)
+  const firstNews = news.news?.[0]
 
-  const promises = tickers.map(({ symbol }) =>
-    yahooFinance.quoteCombine(symbol)
-  )
+  const promises = tickers.map(({ symbol }) => fetchQuote(symbol))
   const results = await Promise.all(promises)
 
-  const resultsWithTitles = results.map((result, index) => ({
+  const resultsWithTitles: Quote[] = results.map((result, index) => ({
     ...result,
-    shortName: tickers[index].shortName,
+    shortName: tickers[index].shortName ?? result.shortName,
   }))
 
   const marketSentiment = getMarketSentiment(
-    resultsWithTitles[0].regularMarketChangePercent
+    resultsWithTitles[0].regularMarketChangePercent ?? 0
   )
 
   const sentimentColor =
@@ -146,17 +145,17 @@ export default async function Home({
                 <strong className={sentimentColor}>{marketSentiment}</strong>
               </CardTitle>
             </CardHeader>
-            {news.news[0] && news.news[0].title && (
+            {firstNews && firstNews.title && (
               <CardFooter className="flex-col items-start">
                 <p className="mb-2 text-sm font-semibold text-neutral-500 dark:text-neutral-500">
                   What you need to know today
                 </p>
                 <Link
                   prefetch={false}
-                  href={news.news[0].link}
+                  href={firstNews.link}
                   className="text-lg font-extrabold"
                 >
-                  {news.news[0].title}
+                  {firstNews.title}
                 </Link>
               </CardFooter>
             )}
