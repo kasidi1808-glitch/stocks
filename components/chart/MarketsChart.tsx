@@ -7,10 +7,12 @@ export default async function MarketsChart({
   ticker,
   range,
   interval,
+  displayName,
 }: {
   ticker: string
   range: Range
   interval: Interval
+  displayName?: string
 }) {
   const chartData = await fetchChartData(ticker, range, interval)
   const quoteData = await fetchQuote(ticker)
@@ -29,7 +31,7 @@ export default async function MarketsChart({
   return (
     <>
       <div className="mb-0.5 font-medium">
-        {quote.shortName} ({quote.symbol}){" "}
+        {displayName ?? quote.shortName} ({quote.symbol}){" "}
         {quote.regularMarketPrice?.toLocaleString(undefined, {
           style: "currency",
           currency: quote.currency ?? undefined,

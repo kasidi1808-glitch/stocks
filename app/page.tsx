@@ -81,6 +81,9 @@ export default async function Home({
     : PRE_MARKET_INSTRUMENTS
 
   const ticker = searchParams?.ticker || instruments[0].symbol
+  const selectedInstrument = instruments.find(
+    (instrument) => instrument.symbol === ticker
+  )
   const range = validateRange(searchParams?.range || DEFAULT_RANGE)
   const interval = validateInterval(
     range,
@@ -162,7 +165,12 @@ export default async function Home({
           </div>
           <div className="w-full lg:w-1/2">
             <Suspense fallback={<div>Loading...</div>}>
-              <MarketsChart ticker={ticker} range={range} interval={interval} />
+              <MarketsChart
+                ticker={ticker}
+                range={range}
+                interval={interval}
+                displayName={selectedInstrument?.shortName}
+              />
             </Suspense>
           </div>
         </Card>
