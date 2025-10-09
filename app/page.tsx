@@ -6,6 +6,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  PRE_MARKET_INSTRUMENTS,
+  REGULAR_MARKET_INSTRUMENTS,
+  fetchMarketSnapshot,
+} from "@/lib/markets"
 import { DEFAULT_INTERVAL, DEFAULT_RANGE } from "@/lib/yahoo-finance/constants"
 import type { Interval, Quote } from "@/types/yahoo-finance"
 import { Suspense } from "react"
@@ -49,32 +54,6 @@ function isMarketOpen() {
   }
 }
 
-const tickersFutures = [
-  { symbol: "ES=F", shortName: "S&P 500 Futures" },
-  { symbol: "NQ=F", shortName: "NASDAQ Futures" },
-  { symbol: "YM=F", shortName: "Dow Jones Futures" },
-  { symbol: "RTY=F", shortName: "Russell 2000 Futures" },
-  { symbol: "CL=F", shortName: "Crude Oil" },
-  { symbol: "GC=F", shortName: "Gold" },
-  { symbol: "SI=F", shortName: "Silver" },
-  { symbol: "EURUSD=X", shortName: "EUR/USD" },
-  { symbol: "^TNX", shortName: "10 Year Bond" },
-  { symbol: "BTC-USD", shortName: "Bitcoin" },
-]
-
-const tickerAfterOpen = [
-  { symbol: "^GSPC", shortName: "S&P 500" },
-  { symbol: "^IXIC", shortName: "NASDAQ" },
-  { symbol: "^DJI", shortName: "Dow Jones" },
-  { symbol: "^RUT", shortName: "Russell 2000" },
-  { symbol: "CL=F", shortName: "Crude Oil" },
-  { symbol: "GC=F", shortName: "Gold" },
-  { symbol: "SI=F", shortName: "Silver" },
-  { symbol: "EURUSD=X", shortName: "EUR/USD" },
-  { symbol: "^TNX", shortName: "10 Year Bond" },
-  { symbol: "BTC-USD", shortName: "Bitcoin" },
-]
-
 function getMarketSentiment(changePercentage: number | undefined) {
   if (!changePercentage) {
     return "neutral"
@@ -97,9 +76,11 @@ export default async function Home({
     interval?: string
   }
 }) {
-  const tickers = isMarketOpen() ? tickerAfterOpen : tickersFutures
+  const instruments = isMarketOpen()
+    ? REGULAR_MARKET_INSTRUMENTS
+    : PRE_MARKET_INSTRUMENTS
 
-  const ticker = searchParams?.ticker || tickers[0].symbol
+  const ticker = searchParams?.ticker || instruments[0].symbol
   const range = validateRange(searchParams?.range || DEFAULT_RANGE)
   const interval = validateInterval(
     range,
@@ -108,16 +89,10 @@ export default async function Home({
   const news = await fetchStockSearch("^DJI", 1)
   const firstNews = news.news?.[0]
 
-  const promises = tickers.map(({ symbol }) => fetchQuote(symbol))
-  const results = await Promise.all(promises)
-
-  const resultsWithTitles: Quote[] = results.map((result, index) => ({
-    ...result,
-    shortName: tickers[index].shortName ?? result.shortName,
-  }))
+  const marketQuotes: Quote[] = await fetchMarketSnapshot(instruments)
 
   const marketSentiment = getMarketSentiment(
-    resultsWithTitles[0].regularMarketChangePercent ?? 0
+    marketQuotes[0]?.regularMarketChangePercent ?? undefined
   )
 
   const sentimentColor =
@@ -182,7 +157,7 @@ export default async function Home({
         <Card className="flex flex-col gap-4 p-6 lg:flex-row">
           <div className="w-full lg:w-1/2">
             <Suspense fallback={<div>Loading...</div>}>
-              <DataTable columns={columns} data={resultsWithTitles} />
+              <DataTable columns={columns} data={marketQuotes} />
             </Suspense>
           </div>
           <div className="w-full lg:w-1/2">

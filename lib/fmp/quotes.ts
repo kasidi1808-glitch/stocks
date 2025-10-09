@@ -1,7 +1,7 @@
 import type { Quote } from "@/types/yahoo-finance"
 import { fmpFetch } from "./client"
 
-interface FmpQuote {
+export interface FmpQuote {
   symbol: string
   name?: string
   price?: number
@@ -31,7 +31,7 @@ interface FmpQuote {
 
 type FmpQuoteResponse = FmpQuote[]
 
-function mapFmpQuoteToQuote(fmpQuote: FmpQuote): Quote {
+export function mapFmpQuoteToQuote(fmpQuote: FmpQuote): Quote {
   const {
     symbol,
     name,
