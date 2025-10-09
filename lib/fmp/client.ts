@@ -1,4 +1,4 @@
-const FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
+const FMP_BASE_URL = "https://financialmodelingprep.com/api/v3/"
 
 type QueryParams = Record<string, string | number | undefined>
 

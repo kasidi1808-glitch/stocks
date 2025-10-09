@@ -57,9 +57,11 @@ function buildSummaryProfile(profile?: FmpProfile) {
 }
 
 export async function fetchFmpQuoteSummary(ticker: string): Promise<QuoteSummary> {
+  const encodedTicker = encodeURIComponent(ticker)
+
   const [quote, profileResponse] = await Promise.all([
     fetchFmpQuote(ticker),
-    fmpFetch<FmpProfileResponse>(`profile/${ticker}`).catch(() => []),
+    fmpFetch<FmpProfileResponse>(`profile/${encodedTicker}`).catch(() => []),
   ])
 
   const profile = Array.isArray(profileResponse) ? profileResponse[0] : undefined

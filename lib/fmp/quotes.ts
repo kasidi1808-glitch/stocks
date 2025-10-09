@@ -94,7 +94,8 @@ function mapFmpQuoteToQuote(fmpQuote: FmpQuote): Quote {
 }
 
 export async function fetchFmpQuote(ticker: string): Promise<Quote> {
-  const response = await fmpFetch<FmpQuoteResponse>(`quote/${ticker}`)
+  const encodedTicker = encodeURIComponent(ticker)
+  const response = await fmpFetch<FmpQuoteResponse>(`quote/${encodedTicker}`)
 
   if (!Array.isArray(response) || response.length === 0) {
     throw new Error(`No quote data returned for ticker ${ticker}`)
