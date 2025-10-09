@@ -72,30 +72,31 @@ function normalizeYahooQuote(response: any): Quote {
   }
 }
 
+async function fetchQuoteFromFmp(ticker: string): Promise<Quote | null> {
+  try {
+    const { fetchFmpQuote } = await import("@/lib/fmp/quotes")
+
+    return await fetchFmpQuote(ticker)
+  } catch (error) {
+    console.warn(`FMP quote lookup failed for ${ticker}`, error)
+    return null
+  }
+}
+
 export async function fetchQuote(ticker: string): Promise<Quote> {
   noStore()
+
+  const fmpQuote = await fetchQuoteFromFmp(ticker)
+  if (fmpQuote) {
+    return fmpQuote
+  }
 
   try {
     const response = await yahooFinance.quote(ticker)
 
     return normalizeYahooQuote(response)
   } catch (error) {
-    console.warn("Failed to fetch stock quote", error)
-
-    const fallbackQuote = await (async () => {
-      try {
-        const { fetchFmpQuote } = await import("@/lib/fmp/quotes")
-
-        return await fetchFmpQuote(ticker)
-      } catch (fallbackError) {
-        console.warn("Fallback quote fetch failed", fallbackError)
-        return null
-      }
-    })()
-
-    if (fallbackQuote) {
-      return fallbackQuote
-    }
+    console.warn(`Failed to fetch stock quote for ${ticker}`, error)
 
     return createEmptyQuote(ticker)
   }
