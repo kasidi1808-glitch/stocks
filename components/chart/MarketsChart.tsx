@@ -1,5 +1,5 @@
 import { fetchChartData } from "@/lib/yahoo-finance/fetchChartData"
-import { Interval, Range } from "@/types/yahoo-finance"
+import type { Interval, Range } from "@/types/yahoo-finance"
 import AreaClosedChart from "./AreaClosedChart"
 import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
 
@@ -32,7 +32,7 @@ export default async function MarketsChart({
         {quote.shortName} ({quote.symbol}){" "}
         {quote.regularMarketPrice?.toLocaleString(undefined, {
           style: "currency",
-          currency: quote.currency,
+          currency: quote.currency ?? undefined,
         })}
       </div>
       {chart.quotes.length > 0 ? (
