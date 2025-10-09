@@ -15,6 +15,29 @@ export type PredefinedScreenerModules =
   | "undervalued_growth_stocks"
   | "undervalued_large_caps";
 
+export type ScreenerQuote = {
+  symbol: string
+  shortName?: string | null
+  regularMarketPrice?: number | null
+  regularMarketChange?: number | null
+  regularMarketChangePercent?: number | null
+  regularMarketVolume?: number | null
+  averageDailyVolume3Month?: number | null
+  marketCap?: number | null
+  epsTrailingTwelveMonths?: number | null
+}
+
+export type ScreenerResult = {
+  id: string
+  title: string
+  description: string
+  canonicalName: string
+  quotes: ScreenerQuote[]
+  start: number
+  count: number
+  total: number
+}
+
 export type Range = "1d" | "1w" | "1m" | "3m" | "1y";
 
 export type Interval =
