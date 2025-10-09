@@ -4,6 +4,37 @@ import { fetchFmpQuote } from "@/lib/fmp/quotes"
 
 import type { Quote } from "@/types/yahoo-finance"
 
+function createEmptyQuote(ticker: string): Quote {
+  return {
+    symbol: ticker,
+    shortName: ticker,
+    regularMarketPrice: null,
+    regularMarketChange: null,
+    regularMarketChangePercent: null,
+    regularMarketDayLow: null,
+    regularMarketDayHigh: null,
+    fiftyTwoWeekLow: null,
+    fiftyTwoWeekHigh: null,
+    marketCap: null,
+    regularMarketVolume: null,
+    averageDailyVolume3Month: null,
+    regularMarketOpen: null,
+    regularMarketPreviousClose: null,
+    trailingEps: null,
+    trailingPE: null,
+    fullExchangeName: null,
+    currency: null,
+    regularMarketTime: null,
+    postMarketPrice: null,
+    postMarketChange: null,
+    postMarketChangePercent: null,
+    preMarketPrice: null,
+    preMarketChange: null,
+    preMarketChangePercent: null,
+    hasPrePostMarketData: false,
+  }
+}
+
 function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
 
@@ -49,15 +80,23 @@ export async function fetchQuote(ticker: string): Promise<Quote> {
 
     return normalizeYahooQuote(response)
   } catch (error) {
-    console.log("Failed to fetch stock quote", error)
+    console.warn("Failed to fetch stock quote", error)
 
-    try {
-      const { fetchFmpQuote } = await import("@/lib/fmp/quotes")
+    const fallbackQuote = await (async () => {
+      try {
+        const { fetchFmpQuote } = await import("@/lib/fmp/quotes")
 
-      return await fetchFmpQuote(ticker)
-    } catch (fallbackError) {
-      console.log("Fallback quote fetch failed", fallbackError)
-      throw new Error("Failed to fetch stock quote.")
+        return await fetchFmpQuote(ticker)
+      } catch (fallbackError) {
+        console.warn("Fallback quote fetch failed", fallbackError)
+        return null
+      }
+    })()
+
+    if (fallbackQuote) {
+      return fallbackQuote
     }
+
+    return createEmptyQuote(ticker)
   }
 }
