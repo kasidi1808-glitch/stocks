@@ -2,7 +2,6 @@ import { unstable_noStore as noStore } from "next/cache"
 import yahooFinance from "yahoo-finance2"
 import { fetchFmpQuote } from "@/lib/fmp/quotes"
 
-import { fetchFmpQuote } from "@/lib/fmp/quotes"
 import type { Quote } from "@/types/yahoo-finance"
 
 function normalizeYahooQuote(response: any): Quote {
@@ -53,6 +52,8 @@ export async function fetchQuote(ticker: string): Promise<Quote> {
     console.log("Failed to fetch stock quote", error)
 
     try {
+      const { fetchFmpQuote } = await import("@/lib/fmp/quotes")
+
       return await fetchFmpQuote(ticker)
     } catch (fallbackError) {
       console.log("Fallback quote fetch failed", fallbackError)
