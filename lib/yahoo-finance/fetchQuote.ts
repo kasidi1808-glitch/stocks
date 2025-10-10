@@ -90,6 +90,12 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
     return new Map()
   }
 
+  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
+  const yahooQuote = yahooQuotes.get(tickerSymbol)
+  if (yahooQuote) {
+    return yahooQuote
+  }
+
   try {
     const data = await yahooFinanceFetch<QuoteApiResponse>("v7/finance/quote", {
       symbols: symbols.join(","),

@@ -87,6 +87,42 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
       trailingPE: null,
     }
   }
+}
+
+function normalizeScreenerResult(
+  response: any,
+  query: string,
+  limit: number
+): ScreenerResult {
+  const rawQuotes = Array.isArray(response?.quotes) ? response.quotes : []
+  const quotes = rawQuotes.map(normalizeScreenerQuote).slice(0, limit)
+
+  return {
+    id: typeof response?.id === "string" ? response.id : query,
+    title:
+      typeof response?.title === "string"
+        ? response.title
+        : "Market data unavailable",
+    description:
+      typeof response?.description === "string" ? response.description : "",
+    canonicalName:
+      typeof response?.canonicalName === "string"
+        ? response.canonicalName
+        : query,
+    quotes,
+    start: Number.isFinite(response?.start) ? response.start : 0,
+    count: Number.isFinite(response?.count) ? response.count : quotes.length,
+    total: Number.isFinite(response?.total) ? response.total : quotes.length,
+  }
+}
+
+export async function fetchScreenerStocks(
+  query: string,
+  count?: number
+): Promise<ScreenerResult> {
+  noStore()
+
+  const limit = count ?? ITEMS_PER_PAGE
 
   const regularMarketPrice = toNumber(offlineQuote.regularMarketPrice)
   const epsTrailingTwelveMonths = toNumber(offlineQuote.trailingEps)
