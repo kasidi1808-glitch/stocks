@@ -74,7 +74,7 @@ async function fetchQuoteSummaryFromFmp(
   }
 }
 
-export async function fetchQuoteSummary(ticker: string): Promise<QuoteSummary> {
+export async function loadQuoteSummary(ticker: string): Promise<QuoteSummary> {
   noStore()
 
   const yahooQuoteSummary = await fetchQuoteSummaryFromYahoo(ticker)
@@ -96,32 +96,3 @@ export async function fetchQuoteSummary(ticker: string): Promise<QuoteSummary> {
   return createEmptyQuoteSummary()
 }
 
-async function fetchQuoteSummaryFromFmp(
-  ticker: string
-): Promise<QuoteSummary | null> {
-  try {
-    const { fetchFmpQuoteSummary } = await import("@/lib/fmp/quoteSummary")
-
-    return await fetchFmpQuoteSummary(ticker)
-  } catch (error) {
-    console.warn(`FMP quote summary lookup failed for ${ticker}`, error)
-    return null
-  }
-}
-
-export async function fetchQuoteSummary(ticker: string): Promise<QuoteSummary> {
-  noStore()
-
-  const yahooQuoteSummary = await fetchQuoteSummaryFromYahoo(ticker)
-  if (yahooQuoteSummary) {
-    return yahooQuoteSummary
-  }
-
-  const fmpQuoteSummary = await fetchQuoteSummaryFromFmp(ticker)
-  if (fmpQuoteSummary) {
-    return fmpQuoteSummary
-  }
-
-  console.warn(`Returning empty quote summary for ${ticker}`)
-  return createEmptyQuoteSummary()
-}
