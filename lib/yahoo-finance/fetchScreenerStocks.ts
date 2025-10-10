@@ -28,12 +28,34 @@ function toNumber(value: unknown): number | null {
   return null
 }
 
+function calculatePe(price: number | null, eps: number | null): number | null {
+  if (price === null || eps === null || eps <= 0) {
+    return null
+  }
+
+  const ratio = price / eps
+
+  if (!Number.isFinite(ratio) || ratio <= 0) {
+    return null
+  }
+
+  return ratio
+}
+
 function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
+  const regularMarketPrice = toNumber(rawQuote?.regularMarketPrice)
+  const epsTrailingTwelveMonths = toNumber(
+    rawQuote?.epsTrailingTwelveMonths
+  )
+  const trailingPE =
+    toNumber(rawQuote?.trailingPE) ??
+    calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
+
   return {
     symbol: typeof rawQuote?.symbol === "string" ? rawQuote.symbol : "",
     shortName:
       rawQuote?.shortName ?? rawQuote?.longName ?? rawQuote?.symbol ?? "",
-    regularMarketPrice: toNumber(rawQuote?.regularMarketPrice),
+    regularMarketPrice,
     regularMarketChange: toNumber(rawQuote?.regularMarketChange),
     regularMarketChangePercent: toNumber(
       rawQuote?.regularMarketChangePercent
@@ -41,7 +63,8 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
     averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
     marketCap: toNumber(rawQuote?.marketCap),
-    epsTrailingTwelveMonths: toNumber(rawQuote?.epsTrailingTwelveMonths),
+    epsTrailingTwelveMonths,
+    trailingPE,
   }
 }
 
@@ -61,13 +84,71 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
       averageDailyVolume3Month: null,
       marketCap: null,
       epsTrailingTwelveMonths: null,
+      trailingPE: null,
     }
   }
+}
+
+type ScreenerApiResponse = {
+  finance?: {
+    result?: Array<{
+      id?: string
+      title?: string
+      description?: string
+      canonicalName?: string
+      start?: number
+      count?: number
+      total?: number
+      quotes?: any[]
+    }>
+  }
+}
+
+function normalizeScreenerResult(
+  response: any,
+  query: string,
+  limit: number
+): ScreenerResult {
+  const rawQuotes = Array.isArray(response?.quotes) ? response.quotes : []
+  const quotes = rawQuotes.map(normalizeScreenerQuote).slice(0, limit)
+
+  return {
+    id: typeof response?.id === "string" ? response.id : query,
+    title:
+      typeof response?.title === "string"
+        ? response.title
+        : "Market data unavailable",
+    description:
+      typeof response?.description === "string" ? response.description : "",
+    canonicalName:
+      typeof response?.canonicalName === "string"
+        ? response.canonicalName
+        : query,
+    quotes,
+    start: Number.isFinite(response?.start) ? response.start : 0,
+    count: Number.isFinite(response?.count) ? response.count : quotes.length,
+    total: Number.isFinite(response?.total) ? response.total : quotes.length,
+  }
+}
+
+export async function fetchScreenerStocks(
+  query: string,
+  count?: number
+): Promise<ScreenerResult> {
+  noStore()
+
+  const limit = count ?? ITEMS_PER_PAGE
+
+  const regularMarketPrice = toNumber(offlineQuote.regularMarketPrice)
+  const epsTrailingTwelveMonths = toNumber(offlineQuote.trailingEps)
+  const trailingPE =
+    toNumber(offlineQuote.trailingPE) ??
+    calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
   return {
     symbol: offlineQuote.symbol,
     shortName: offlineQuote.shortName ?? offlineQuote.symbol,
-    regularMarketPrice: toNumber(offlineQuote.regularMarketPrice),
+    regularMarketPrice,
     regularMarketChange: toNumber(offlineQuote.regularMarketChange),
     regularMarketChangePercent: toNumber(
       offlineQuote.regularMarketChangePercent
@@ -77,7 +158,8 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
       offlineQuote.averageDailyVolume3Month
     ),
     marketCap: toNumber(offlineQuote.marketCap),
-    epsTrailingTwelveMonths: toNumber(offlineQuote.trailingEps),
+    epsTrailingTwelveMonths,
+    trailingPE,
   }
 }
 

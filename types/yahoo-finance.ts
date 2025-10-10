@@ -25,6 +25,7 @@ export type ScreenerQuote = {
   averageDailyVolume3Month?: number | null
   marketCap?: number | null
   epsTrailingTwelveMonths?: number | null
+  trailingPE?: number | null
 }
 
 export type ScreenerResult = {

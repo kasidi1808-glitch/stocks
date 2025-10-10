@@ -89,16 +89,21 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
 
+      const trailingPe = toNumber(row.original.trailingPE)
+      if (trailingPe !== null && trailingPe > 0) {
+        return <div className="text-right">{trailingPe.toFixed(2)}</div>
+      }
+
       const price = toNumber(row.original.regularMarketPrice)
       const eps = toNumber(row.original.epsTrailingTwelveMonths)
 
-      if (!price || !eps || eps <= 0) {
+      if (price === null || eps === null || eps <= 0) {
         return <div className="text-right text-muted-foreground">—</div>
       }
 
       const pe = price / eps
 
-      if (!Number.isFinite(pe) || pe < 0) {
+      if (!Number.isFinite(pe) || pe <= 0) {
         return <div className="text-right text-muted-foreground">—</div>
       }
 
