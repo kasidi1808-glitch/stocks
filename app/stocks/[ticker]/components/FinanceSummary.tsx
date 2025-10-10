@@ -1,4 +1,4 @@
-import { fetchQuoteSummary } from "@/lib/yahoo-finance/fetchQuoteSummary"
+import { loadQuoteSummary } from "@/lib/yahoo-finance/fetchQuoteSummary"
 
 function formatNumber(num: number) {
   if (num >= 1e12) {
@@ -34,17 +34,19 @@ const keysToDisplay = [
 ]
 
 export default async function FinanceSummary({ ticker }: { ticker: string }) {
-  const financeSummaryData = await fetchQuoteSummary(ticker)
+  const financeSummaryData = await loadQuoteSummary(ticker)
 
   return (
     <div className="grid grid-flow-col grid-rows-6 gap-4 md:grid-rows-3">
       {keysToDisplay.map((item) => {
         const section = item.section || "summaryDetail"
-        const data = financeSummaryData?.[section]?.[item.key] ?? undefined
+        const data = financeSummaryData?.[section]?.[item.key]
         let formattedData = "N/A"
 
-        if (data !== undefined && !isNaN(data)) {
-          formattedData = item.format ? item.format(data) : data
+        if (typeof data === "number" && !Number.isNaN(data)) {
+          formattedData = item.format ? item.format(data) : data.toString()
+        } else if (typeof data === "string" && data.trim() !== "") {
+          formattedData = data
         }
         return (
           <div
