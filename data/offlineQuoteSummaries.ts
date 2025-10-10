@@ -325,6 +325,222 @@ const OFFLINE_SUMMARIES: Record<string, QuoteSummary> = {
       website: "https://www.coca-colacompany.com",
     },
   },
+  NFLX: {
+    summaryDetail: {
+      open: 465.37,
+      dayHigh: 472.88,
+      dayLow: 462.03,
+      volume: 4200000,
+      trailingPE: 29.74,
+      marketCap: 207000000000,
+      fiftyTwoWeekHigh: 485.0,
+      fiftyTwoWeekLow: 315.62,
+      averageVolume: 5200000,
+      dividendYield: 0,
+      beta: 1.20,
+    },
+    defaultKeyStatistics: {
+      trailingEps: 15.82,
+    },
+    summaryProfile: {
+      longBusinessSummary:
+        "Netflix, Inc. provides entertainment services by streaming television series, documentaries, feature films, and mobile games across various genres and languages to members worldwide.",
+      sector: "Communication Services",
+      industryDisp: "Entertainment",
+      country: "United States",
+      fullTimeEmployees: 12800,
+      website: "https://www.netflix.com",
+    },
+  },
+  DIS: {
+    summaryDetail: {
+      open: 94.02,
+      dayHigh: 95.86,
+      dayLow: 93.12,
+      volume: 7500000,
+      trailingPE: 72.28,
+      marketCap: 175000000000,
+      fiftyTwoWeekHigh: 118.18,
+      fiftyTwoWeekLow: 78.73,
+      averageVolume: 10000000,
+      dividendYield: 0.002,
+      beta: 1.29,
+    },
+    defaultKeyStatistics: {
+      trailingEps: 1.32,
+    },
+    summaryProfile: {
+      longBusinessSummary:
+        "The Walt Disney Company operates as a worldwide entertainment company, engaging in media networks, theme parks and experiences, studio entertainment, and direct-to-consumer streaming services.",
+      sector: "Communication Services",
+      industryDisp: "Entertainment",
+      country: "United States",
+      fullTimeEmployees: 225000,
+      website: "https://www.thewaltdisneycompany.com",
+    },
+  },
+  PEP: {
+    summaryDetail: {
+      open: 171.12,
+      dayHigh: 172.11,
+      dayLow: 169.02,
+      volume: 3300000,
+      trailingPE: 26.52,
+      marketCap: 234000000000,
+      fiftyTwoWeekHigh: 196.88,
+      fiftyTwoWeekLow: 155.83,
+      averageVolume: 3700000,
+      dividendYield: 0.028,
+      beta: 0.56,
+    },
+    defaultKeyStatistics: {
+      trailingEps: 6.42,
+    },
+    summaryProfile: {
+      longBusinessSummary:
+        "PepsiCo, Inc. manufactures, markets, distributes, and sells beverages and convenient foods under various brands in more than 200 countries and territories worldwide.",
+      sector: "Consumer Defensive",
+      industryDisp: "Beverages—Non-Alcoholic",
+      country: "United States",
+      fullTimeEmployees: 309000,
+      website: "https://www.pepsico.com",
+    },
+  },
+  ORCL: {
+    summaryDetail: {
+      open: 111.82,
+      dayHigh: 113.28,
+      dayLow: 111.14,
+      volume: 6100000,
+      trailingPE: 26.01,
+      marketCap: 309000000000,
+      fiftyTwoWeekHigh: 127.54,
+      fiftyTwoWeekLow: 82.04,
+      averageVolume: 8400000,
+      dividendYield: 0.013,
+      beta: 1.03,
+    },
+    defaultKeyStatistics: {
+      trailingEps: 4.33,
+    },
+    summaryProfile: {
+      longBusinessSummary:
+        "Oracle Corporation provides products and services that address enterprise information technology environments worldwide, including Oracle Cloud Infrastructure and a suite of enterprise applications.",
+      sector: "Technology",
+      industryDisp: "Software—Infrastructure",
+      country: "United States",
+      fullTimeEmployees: 164000,
+      website: "https://www.oracle.com",
+    },
+  },
+  CSCO: {
+    summaryDetail: {
+      open: 51.42,
+      dayHigh: 51.63,
+      dayLow: 50.52,
+      volume: 13000000,
+      trailingPE: 16.02,
+      marketCap: 207000000000,
+      fiftyTwoWeekHigh: 58.19,
+      fiftyTwoWeekLow: 45.03,
+      averageVolume: 19000000,
+      dividendYield: 0.031,
+      beta: 0.93,
+    },
+    defaultKeyStatistics: {
+      trailingEps: 3.18,
+    },
+    summaryProfile: {
+      longBusinessSummary:
+        "Cisco Systems, Inc. designs, manufactures, and sells Internet Protocol-based networking and other products related to the communications and information technology industry worldwide.",
+      sector: "Technology",
+      industryDisp: "Communication Equipment",
+      country: "United States",
+      fullTimeEmployees: 84000,
+      website: "https://www.cisco.com",
+    },
+  },
+  BAC: {
+    summaryDetail: {
+      open: 31.92,
+      dayHigh: 32.54,
+      dayLow: 31.72,
+      volume: 38000000,
+      trailingPE: 10.46,
+      marketCap: 257000000000,
+      fiftyTwoWeekHigh: 37,
+      fiftyTwoWeekLow: 24.96,
+      averageVolume: 44000000,
+      dividendYield: 0.027,
+      beta: 1.37,
+    },
+    defaultKeyStatistics: {
+      trailingEps: 3.1,
+    },
+    summaryProfile: {
+      longBusinessSummary:
+        "Bank of America Corporation provides banking and financial products and services for individual consumers, small- and middle-market businesses, institutional investors, corporations, and governments worldwide.",
+      sector: "Financial Services",
+      industryDisp: "Banks—Diversified",
+      country: "United States",
+      fullTimeEmployees: 213000,
+      website: "https://www.bankofamerica.com",
+    },
+  },
+  WMT: {
+    summaryDetail: {
+      open: 159.12,
+      dayHigh: 159.82,
+      dayLow: 157.45,
+      volume: 5600000,
+      trailingPE: 25.69,
+      marketCap: 425000000000,
+      fiftyTwoWeekHigh: 169.94,
+      fiftyTwoWeekLow: 136.09,
+      averageVolume: 6500000,
+      dividendYield: 0.015,
+      beta: 0.53,
+    },
+    defaultKeyStatistics: {
+      trailingEps: 6.16,
+    },
+    summaryProfile: {
+      longBusinessSummary:
+        "Walmart Inc. engages in the operation of retail, wholesale, and e-commerce businesses, offering a variety of merchandise and services at everyday low prices in the United States and internationally.",
+      sector: "Consumer Defensive",
+      industryDisp: "Discount Stores",
+      country: "United States",
+      fullTimeEmployees: 2100000,
+      website: "https://www.walmart.com",
+    },
+  },
+  HD: {
+    summaryDetail: {
+      open: 328.41,
+      dayHigh: 331.82,
+      dayLow: 326.38,
+      volume: 2500000,
+      trailingPE: 21.56,
+      marketCap: 333000000000,
+      fiftyTwoWeekHigh: 347.25,
+      fiftyTwoWeekLow: 274.26,
+      averageVolume: 3400000,
+      dividendYield: 0.024,
+      beta: 0.98,
+    },
+    defaultKeyStatistics: {
+      trailingEps: 15.34,
+    },
+    summaryProfile: {
+      longBusinessSummary:
+        "The Home Depot, Inc. operates as a home improvement retailer, supplying building materials, home improvement products, lawn and garden goods, and related services in the United States, Canada, and Mexico.",
+      sector: "Consumer Cyclical",
+      industryDisp: "Home Improvement Retail",
+      country: "United States",
+      fullTimeEmployees: 465000,
+      website: "https://www.homedepot.com",
+    },
+  },
 }
 
 export function getOfflineQuoteSummary(symbol: string): QuoteSummary | null {
