@@ -82,6 +82,14 @@ const FALLBACK_SYMBOLS =
     "XOM",
     "PG",
     "KO",
+    "NFLX",
+    "DIS",
+    "PEP",
+    "ORCL",
+    "CSCO",
+    "BAC",
+    "WMT",
+    "HD",
   ] as const
 
 function toScreenerQuote(symbol: string): ScreenerQuote {
