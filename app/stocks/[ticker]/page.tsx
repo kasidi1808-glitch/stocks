@@ -2,6 +2,7 @@ import StockChart from "@/components/chart/StockChart"
 import CompanySummaryCard from "@/app/stocks/[ticker]/components/CompanySummaryCard"
 import FinanceSummary from "@/app/stocks/[ticker]/components/FinanceSummary"
 import News from "@/app/stocks/[ticker]/components/News"
+import AutoRefresh from "@/components/AutoRefresh"
 import { Card, CardContent } from "@/components/ui/card"
 import { DEFAULT_INTERVAL, DEFAULT_RANGE } from "@/lib/yahoo-finance/constants"
 import {
@@ -53,6 +54,7 @@ export default async function StocksPage({ params, searchParams }: Props) {
 
   return (
     <div>
+      <AutoRefresh intervalMs={45_000} />
       <Card>
         <CardContent className="space-y-10 pt-6 lg:px-40 lg:py-14">
           <Suspense
