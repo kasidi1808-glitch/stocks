@@ -2,9 +2,57 @@
 
 import { CellContext, ColumnDef } from "@tanstack/react-table"
 
-import type { ScreenerQuote } from "@/node_modules/yahoo-finance2/dist/esm/src/modules/screener"
 import { cn } from "@/lib/utils"
+import type { ScreenerQuote } from "@/types/yahoo-finance"
 import Link from "next/link"
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value)
+
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
+function formatNumber(value: unknown, fractionDigits = 2): string {
+  const numeric = toNumber(value)
+
+  if (numeric === null) {
+    return "—"
+  }
+
+  return numeric.toFixed(fractionDigits)
+}
+
+function formatVolume(value: unknown): string {
+  const numeric = toNumber(value)
+
+  if (numeric === null) {
+    return "—"
+  }
+
+  if (numeric >= 1_000_000_000_000) {
+    return `${(numeric / 1_000_000_000_000).toFixed(3)}T`
+  }
+
+  if (numeric >= 1_000_000_000) {
+    return `${(numeric / 1_000_000_000).toFixed(3)}B`
+  }
+
+  if (numeric >= 1_000_000) {
+    return `${(numeric / 1_000_000).toFixed(3)}M`
+  }
+
+  return numeric.toLocaleString()
+}
 
 export const columns: ColumnDef<ScreenerQuote>[] = [
   {
@@ -41,21 +89,22 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
 
-      const regularMarketPrice = row.original.regularMarketPrice
-      const epsTrailingTwelveMonths = row.original.epsTrailingTwelveMonths || 0
-
-      if (
-        regularMarketPrice === undefined ||
-        epsTrailingTwelveMonths === undefined ||
-        regularMarketPrice === null ||
-        epsTrailingTwelveMonths === null
-      ) {
-        return <div className="text-right">N/A</div>
+      const trailingPe = toNumber(row.original.trailingPE)
+      if (trailingPe !== null && trailingPe > 0) {
+        return <div className="text-right">{trailingPe.toFixed(2)}</div>
       }
 
-      const pe = regularMarketPrice / epsTrailingTwelveMonths
-      if (pe < 0) {
-        return <div className="text-right">N/A</div>
+      const price = toNumber(row.original.regularMarketPrice)
+      const eps = toNumber(row.original.epsTrailingTwelveMonths)
+
+      if (price === null || eps === null || eps <= 0) {
+        return <div className="text-right text-muted-foreground">—</div>
+      }
+
+      const pe = price / eps
+
+      if (!Number.isFinite(pe) || pe <= 0) {
+        return <div className="text-right text-muted-foreground">—</div>
       }
 
       return <div className="text-right">{pe.toFixed(2)}</div>
@@ -67,8 +116,18 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">Price</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const price = parseFloat(row.getValue("regularMarketPrice"))
-      return <div className="text-right">{price.toFixed(2)}</div>
+      const formattedPrice = formatNumber(row.getValue("regularMarketPrice"))
+
+      return (
+        <div
+          className={cn(
+            "text-right",
+            formattedPrice === "—" && "text-muted-foreground"
+          )}
+        >
+          {formattedPrice}
+        </div>
+      )
     },
   },
   {
@@ -77,7 +136,15 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">Change</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const marketChange = parseFloat(row.getValue("regularMarketChange"))
+      const marketChange = toNumber(row.getValue("regularMarketChange"))
+
+      if (marketChange === null) {
+        return (
+          <div className="text-right text-muted-foreground">—</div>
+        )
+      }
+
+      const sign = marketChange > 0 ? "+" : ""
       return (
         <div className="flex justify-end">
           <div
@@ -85,11 +152,13 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
               "text-right",
               marketChange > 0
                 ? "text-green-800 dark:text-green-400"
-                : "text-red-800 dark:text-red-500"
+                : marketChange < 0
+                  ? "text-red-800 dark:text-red-500"
+                  : "text-muted-foreground"
             )}
           >
-            {marketChange > 0 ? "+" : ""}
-            {marketChange.toFixed(2)}
+            {sign}
+            {Math.abs(marketChange).toFixed(2)}
           </div>
         </div>
       )
@@ -101,9 +170,21 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">% Change</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const marketChangePercent = parseFloat(
+      const marketChangePercent = toNumber(
         row.getValue("regularMarketChangePercent")
       )
+
+      if (marketChangePercent === null) {
+        return (
+          <div className="flex justify-end">
+            <div className="w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right text-muted-foreground">
+              —
+            </div>
+          </div>
+        )
+      }
+
+      const sign = marketChangePercent > 0 ? "+" : ""
       return (
         <div className="flex justify-end">
           <div
@@ -111,11 +192,13 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
               "w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right",
               marketChangePercent > 0
                 ? "bg-green-300 text-green-800 dark:bg-green-950 dark:text-green-400"
-                : "bg-red-300 text-red-800 dark:bg-red-950 dark:text-red-500"
+                : marketChangePercent < 0
+                  ? "bg-red-300 text-red-800 dark:bg-red-950 dark:text-red-500"
+                  : "bg-muted text-muted-foreground"
             )}
           >
-            {marketChangePercent > 0 ? "+" : ""}
-            {marketChangePercent.toFixed(2)}
+            {sign}
+            {Math.abs(marketChangePercent).toFixed(2)}
           </div>
         </div>
       )
@@ -127,16 +210,18 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">Volume</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const volume = parseFloat(row.getValue("regularMarketVolume"))
-      const formatVolume = (volume: number): string => {
-        if (volume >= 1000000) {
-          return `${(volume / 1000000).toFixed(3)}M`
-        } else {
-          return volume.toString()
-        }
-      }
+      const formattedVolume = formatVolume(row.getValue("regularMarketVolume"))
 
-      return <div className="text-right">{formatVolume(volume)}</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            formattedVolume === "—" && "text-muted-foreground"
+          )}
+        >
+          {formattedVolume}
+        </div>
+      )
     },
   },
   {
@@ -145,16 +230,20 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">Avg Volume</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const volume = parseFloat(row.getValue("averageDailyVolume3Month"))
-      const formatVolume = (volume: number): string => {
-        if (volume >= 1000000) {
-          return `${(volume / 1000000).toFixed(3)}M`
-        } else {
-          return volume.toString()
-        }
-      }
+      const formattedVolume = formatVolume(
+        row.getValue("averageDailyVolume3Month")
+      )
 
-      return <div className="text-right">{formatVolume(volume)}</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            formattedVolume === "—" && "text-muted-foreground"
+          )}
+        >
+          {formattedVolume}
+        </div>
+      )
     },
   },
   {
@@ -163,18 +252,18 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">Market Cap</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const marketCap = parseFloat(row.getValue("marketCap"))
-      const formatMarketCap = (marketCap: number): string => {
-        if (marketCap >= 1_000_000_000_000) {
-          return `${(marketCap / 1_000_000_000_000).toFixed(3)}T`
-        } else if (marketCap >= 1_000_000_000) {
-          return `${(marketCap / 1_000_000_000).toFixed(3)}B`
-        } else {
-          return `${(marketCap / 1_000_000).toFixed(3)}M`
-        }
-      }
+      const formattedMarketCap = formatVolume(row.getValue("marketCap"))
 
-      return <div className="text-right">{formatMarketCap(marketCap)}</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            formattedMarketCap === "—" && "text-muted-foreground"
+          )}
+        >
+          {formattedMarketCap}
+        </div>
+      )
     },
   },
 ]
