@@ -87,6 +87,15 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
       trailingPE: null,
     }
   }
+}
+
+export async function loadScreenerStocks(
+  query: string,
+  count?: number
+): Promise<ScreenerResult> {
+  noStore()
+
+  const limit = count ?? ITEMS_PER_PAGE
 
   const regularMarketPrice = toNumber(offlineQuote.regularMarketPrice)
   const epsTrailingTwelveMonths = toNumber(offlineQuote.trailingEps)
