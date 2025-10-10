@@ -3,4 +3,4 @@ export {
   PRE_MARKET_INSTRUMENTS,
   REGULAR_MARKET_INSTRUMENTS,
 } from "./instruments"
-export type { MarketInstrument, MarketInstrumentSource } from "./types"
+export type { MarketInstrument } from "./types"

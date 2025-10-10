@@ -1,8 +1,8 @@
 import { unstable_noStore as noStore } from "next/cache"
-import yahooFinance from "yahoo-finance2"
-import { fetchFmpQuote } from "@/lib/fmp/quotes"
 
 import type { Quote } from "@/types/yahoo-finance"
+
+import { yahooFinanceFetch } from "./client"
 
 function createEmptyQuote(ticker: string): Quote {
   return {
@@ -35,7 +35,7 @@ function createEmptyQuote(ticker: string): Quote {
   }
 }
 
-function normalizeYahooQuote(response: any): Quote {
+export function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
 
   return {
@@ -72,6 +72,45 @@ function normalizeYahooQuote(response: any): Quote {
   }
 }
 
+type QuoteApiResponse = {
+  quoteResponse?: {
+    result?: any[]
+  }
+}
+
+async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> {
+  if (symbols.length === 0) {
+    return new Map()
+  }
+
+  const fmpQuote = await fetchQuoteFromFmp(ticker)
+  if (fmpQuote) {
+    return fmpQuote
+  }
+
+  try {
+    const data = await yahooFinanceFetch<QuoteApiResponse>("v7/finance/quote", {
+      symbols: symbols.join(","),
+      region: "US",
+      lang: "en-US",
+    })
+
+    const results = Array.isArray(data.quoteResponse?.result)
+      ? data.quoteResponse?.result
+      : []
+
+    return new Map(
+      results
+        .map((item) => normalizeYahooQuote(item))
+        .filter((quote) => quote.symbol)
+        .map((quote) => [quote.symbol, quote] as const)
+    )
+  } catch (error) {
+    console.warn("Failed to fetch Yahoo quotes", error)
+    return new Map()
+  }
+}
+
 async function fetchQuoteFromFmp(ticker: string): Promise<Quote | null> {
   try {
     const { fetchFmpQuote } = await import("@/lib/fmp/quotes")
@@ -86,18 +125,22 @@ async function fetchQuoteFromFmp(ticker: string): Promise<Quote | null> {
 export async function fetchQuote(ticker: string): Promise<Quote> {
   noStore()
 
+  const yahooQuotes = await fetchYahooQuotes([ticker])
+  const yahooQuote = yahooQuotes.get(ticker)
+  if (yahooQuote) {
+    return yahooQuote
+  }
+
   const fmpQuote = await fetchQuoteFromFmp(ticker)
   if (fmpQuote) {
     return fmpQuote
   }
 
-  try {
-    const response = await yahooFinance.quote(ticker)
+  return createEmptyQuote(ticker)
+}
 
-    return normalizeYahooQuote(response)
-  } catch (error) {
-    console.warn(`Failed to fetch stock quote for ${ticker}`, error)
-
-    return createEmptyQuote(ticker)
-  }
+export async function fetchQuotesBatch(
+  tickers: string[]
+): Promise<Map<string, Quote>> {
+  return fetchYahooQuotes(tickers)
 }

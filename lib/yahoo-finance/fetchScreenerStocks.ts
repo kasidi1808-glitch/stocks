@@ -1,11 +1,12 @@
 import { unstable_noStore as noStore } from "next/cache"
-import yahooFinance from "yahoo-finance2"
 
 import type {
   PredefinedScreenerModules,
   ScreenerQuote,
   ScreenerResult,
 } from "@/types/yahoo-finance"
+
+import { yahooFinanceFetch } from "./client"
 
 const ITEMS_PER_PAGE = 40
 
@@ -119,6 +120,21 @@ function createFallbackResult(
   }
 }
 
+type ScreenerApiResponse = {
+  finance?: {
+    result?: Array<{
+      id?: string
+      title?: string
+      description?: string
+      canonicalName?: string
+      start?: number
+      count?: number
+      total?: number
+      quotes?: any[]
+    }>
+  }
+}
+
 function normalizeScreenerResult(
   response: any,
   query: string,
@@ -152,21 +168,24 @@ export async function fetchScreenerStocks(
 ): Promise<ScreenerResult> {
   noStore()
 
-  // PAGINATION IS HANDLED BY TENSTACK TABLE
-
   const limit = count ?? ITEMS_PER_PAGE
 
-  const queryOptions = {
-    scrIds: query as PredefinedScreenerModules,
-    count: limit,
-    region: "US",
-    lang: "en-US",
-  }
-
   try {
-    const response = await yahooFinance.screener(queryOptions, {
-      validateResult: false,
-    })
+    const data = await yahooFinanceFetch<ScreenerApiResponse>(
+      "v1/finance/screener/predefined/saved",
+      {
+        scrIds: query as PredefinedScreenerModules,
+        count: limit,
+        region: "US",
+        lang: "en-US",
+      }
+    )
+
+    const response = data.finance?.result?.[0]
+
+    if (!response) {
+      throw new Error("No screener results returned")
+    }
 
     return normalizeScreenerResult(response, query, limit)
   } catch (error) {
