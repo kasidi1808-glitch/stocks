@@ -158,3 +158,37 @@ export async function fetchQuotesBatch(
 
   return quotes
 }
+
+async function fetchQuoteFromFmp(ticker: string): Promise<Quote | null> {
+  try {
+    const { fetchFmpQuote } = await import("@/lib/fmp/quotes")
+
+    return await fetchFmpQuote(ticker)
+  } catch (error) {
+    console.warn(`FMP quote lookup failed for ${ticker}`, error)
+    return null
+  }
+}
+
+export async function fetchQuote(ticker: string): Promise<Quote> {
+  noStore()
+
+  const yahooQuotes = await fetchYahooQuotes([ticker])
+  const yahooQuote = yahooQuotes.get(ticker)
+  if (yahooQuote) {
+    return yahooQuote
+  }
+
+  const fmpQuote = await fetchQuoteFromFmp(ticker)
+  if (fmpQuote) {
+    return fmpQuote
+  }
+
+  return createEmptyQuote(ticker)
+}
+
+export async function fetchQuotesBatch(
+  tickers: string[]
+): Promise<Map<string, Quote>> {
+  return fetchYahooQuotes(tickers)
+}
