@@ -1,3 +1,7 @@
+import AutoRefresh from "@/components/AutoRefresh"
+import MarketsChart from "@/components/chart/MarketsChart"
+import SectorPerformance from "@/components/stocks/SectorPerformance"
+import { columns } from "@/components/stocks/markets/columns"
 import { DataTable } from "@/components/stocks/markets/data-table"
 import {
   Card,
@@ -12,18 +16,14 @@ import {
   fetchMarketSnapshot,
 } from "@/lib/markets"
 import { DEFAULT_INTERVAL, DEFAULT_RANGE } from "@/lib/yahoo-finance/constants"
-import type { Interval, Quote } from "@/types/yahoo-finance"
-import { Suspense } from "react"
-import MarketsChart from "@/components/chart/MarketsChart"
-import Link from "next/link"
-import { columns } from "@/components/stocks/markets/columns"
-import SectorPerformance from "@/components/stocks/SectorPerformance"
 import {
   validateInterval,
   validateRange,
 } from "@/lib/yahoo-finance/fetchChartData"
 import { fetchStockSearch } from "@/lib/yahoo-finance/fetchStockSearch"
-import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
+import type { Interval, Quote } from "@/types/yahoo-finance"
+import Link from "next/link"
+import { Suspense } from "react"
 
 function isMarketOpen() {
   const now = new Date()
@@ -114,6 +114,7 @@ export default async function Home({
 
   return (
     <div className="flex flex-col gap-4">
+      <AutoRefresh intervalMs={60_000} />
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="w-full lg:w-1/2">
           <Card className="relative flex h-full min-h-[15rem] flex-col justify-between overflow-hidden">

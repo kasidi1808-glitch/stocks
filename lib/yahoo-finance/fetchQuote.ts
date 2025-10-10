@@ -83,11 +83,6 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
     return new Map()
   }
 
-  const fmpQuote = await fetchQuoteFromFmp(ticker)
-  if (fmpQuote) {
-    return fmpQuote
-  }
-
   try {
     const data = await yahooFinanceFetch<QuoteApiResponse>("v7/finance/quote", {
       symbols: symbols.join(","),
