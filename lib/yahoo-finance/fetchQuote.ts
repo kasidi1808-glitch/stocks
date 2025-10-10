@@ -90,22 +90,12 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
     return new Map()
   }
 
-  for (const ticker of missingTickers) {
-    try {
-      const fallbackQuote = await fetchQuote(ticker)
-
-      if (fallbackQuote) {
-        quotes.set(ticker, fallbackQuote)
-      }
-    } catch (error) {
-      console.warn(`Failed to hydrate quote for ${ticker}`, error)
-    }
+  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
+  const yahooQuote = yahooQuotes.get(tickerSymbol)
+  if (yahooQuote) {
+    return yahooQuote
   }
 
-  return quotes
-}
-
-async function loadQuoteFromFmp(ticker: string): Promise<Quote | null> {
   try {
     const data = await yahooFinanceFetch<QuoteApiResponse>("v7/finance/quote", {
       symbols: symbols.join(","),
@@ -155,58 +145,7 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
   return createEmptyQuote(tickerSymbol)
 }
 
-export async function loadQuotesBatch(
-  tickers: string[]
-): Promise<Map<string, Quote>> {
-  const uniqueTickers = Array.from(new Set(tickers))
-  const quotes = await fetchYahooQuotes(uniqueTickers)
-
-  const missingTickers = uniqueTickers.filter(
-    (ticker) => !quotes.has(ticker)
-  )
-
-  for (const ticker of missingTickers) {
-    try {
-      const fallbackQuote = await fetchQuote(ticker)
-
-      if (fallbackQuote) {
-        quotes.set(ticker, fallbackQuote)
-      }
-    } catch (error) {
-      console.warn(`Failed to hydrate quote for ${ticker}`, error)
-    }
-  }
-
-  return quotes
-}
-
-export async function fetchQuote(ticker: string): Promise<Quote> {
-  noStore()
-
-  const yahooQuotes = await fetchYahooQuotes([ticker])
-  const yahooQuote = yahooQuotes.get(ticker)
-  if (yahooQuote) {
-    return yahooQuote
-  }
-
-  try {
-    const fmpQuote = await fetchFmpQuote(ticker)
-    if (fmpQuote) {
-      return fmpQuote
-    }
-  } catch (error) {
-    console.warn(`FMP quote lookup failed for ${ticker}`, error)
-  }
-
-  const offlineQuote = getOfflineQuote(ticker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  return createEmptyQuote(ticker)
-}
-
-export async function loadQuotesBatch(
+export async function loadQuotesForSymbols(
   tickers: string[]
 ): Promise<Map<string, Quote>> {
   const uniqueTickers = Array.from(new Set(tickers))
