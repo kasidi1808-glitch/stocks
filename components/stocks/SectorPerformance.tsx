@@ -1,57 +1,58 @@
+import { fetchQuotesBatch } from "@/lib/yahoo-finance/fetchQuote"
 import { cn } from "@/lib/utils"
 
 interface Sector {
   sector: string
-  changesPercentage: string
+  changesPercentage: number | null
 }
 
-const FALLBACK_SECTOR_PERFORMANCE: Sector[] = [
-  { sector: "Communication Services", changesPercentage: "0" },
-  { sector: "Consumer Cyclical", changesPercentage: "0" },
-  { sector: "Consumer Defensive", changesPercentage: "0" },
-  { sector: "Energy", changesPercentage: "0" },
-  { sector: "Financial Services", changesPercentage: "0" },
-  { sector: "Healthcare", changesPercentage: "0" },
-  { sector: "Industrials", changesPercentage: "0" },
-  { sector: "Real Estate", changesPercentage: "0" },
-  { sector: "Technology", changesPercentage: "0" },
-  { sector: "Utilities", changesPercentage: "0" },
+const SECTOR_ETFS = [
+  { sector: "Communication Services", symbol: "XLC" },
+  { sector: "Consumer Cyclical", symbol: "XLY" },
+  { sector: "Consumer Defensive", symbol: "XLP" },
+  { sector: "Energy", symbol: "XLE" },
+  { sector: "Financial Services", symbol: "XLF" },
+  { sector: "Healthcare", symbol: "XLV" },
+  { sector: "Industrials", symbol: "XLI" },
+  { sector: "Real Estate", symbol: "XLRE" },
+  { sector: "Technology", symbol: "XLK" },
+  { sector: "Utilities", symbol: "XLU" },
 ]
 
-async function fetchSectorPerformance(): Promise<Sector[] | null> {
-  const apiKey = process.env.FMP_API_KEY
+const FALLBACK_SECTOR_PERFORMANCE: Sector[] = SECTOR_ETFS.map((sector) => ({
+  sector: sector.sector,
+  changesPercentage: null,
+}))
 
-  if (!apiKey) {
-    console.warn(
-      "FMP_API_KEY is not configured; using neutral sector performance data"
-    )
-    return FALLBACK_SECTOR_PERFORMANCE
-  }
-
-  const url = `https://financialmodelingprep.com/api/v3/sector-performance?apikey=${apiKey}`
-  const options = {
-    method: "GET",
-    next: {
-      revalidate: 3600,
-    },
-  }
-
+async function fetchSectorPerformance(): Promise<Sector[]> {
   try {
-    const res = await fetch(url, options)
+    const symbols = SECTOR_ETFS.map((item) => item.symbol)
+    const quotes = await fetchQuotesBatch(symbols)
 
-    if (!res.ok) {
-      throw new Error(`FMP sector performance request failed: ${res.status}`)
-    }
+    const sectors = SECTOR_ETFS.map(({ sector, symbol }) => {
+      const quote = quotes.get(symbol)
+      const changePercent =
+        typeof quote?.regularMarketChangePercent === "number"
+          ? quote.regularMarketChangePercent
+          : null
 
-    const data = (await res.json()) as Sector[]
+      return {
+        sector,
+        changesPercentage: changePercent,
+      }
+    })
 
-    if (!Array.isArray(data) || data.length === 0) {
+    const hasLiveData = sectors.some(
+      (item) => typeof item.changesPercentage === "number"
+    )
+
+    if (!hasLiveData) {
       return FALLBACK_SECTOR_PERFORMANCE
     }
 
-    return data
+    return sectors
   } catch (error) {
-    console.warn("Failed to fetch sector performance", error)
+    console.warn("Failed to load Yahoo Finance sector performance", error)
     return FALLBACK_SECTOR_PERFORMANCE
   }
 }
@@ -64,8 +65,8 @@ export default async function SectorPerformance() {
   }
 
   const parsedChanges = data
-    .map((sector) => Number.parseFloat(sector.changesPercentage))
-    .filter((value) => Number.isFinite(value))
+    .map((sector) => sector.changesPercentage)
+    .filter((value): value is number => typeof value === "number")
 
   const totalChangePercentage = parsedChanges.reduce((total, value) => {
     return total + value
@@ -73,8 +74,8 @@ export default async function SectorPerformance() {
 
   const averageChangePercentage =
     parsedChanges.length > 0
-      ? (totalChangePercentage / parsedChanges.length).toFixed(2) + "%"
-      : "0.00%"
+      ? totalChangePercentage / parsedChanges.length
+      : null
 
   const allSectors = {
     sector: "All sectors",
@@ -85,8 +86,8 @@ export default async function SectorPerformance() {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {sectorsWithAggregate.map((sector: Sector) => {
-        const numericChange = Number.parseFloat(sector.changesPercentage)
-        const isFiniteChange = Number.isFinite(numericChange)
+        const numericChange = sector.changesPercentage
+        const isFiniteChange = typeof numericChange === "number"
         const formattedChange = isFiniteChange
           ? `${numericChange.toFixed(2)}%`
           : "—"
