@@ -89,34 +89,7 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
   }
 }
 
-function normalizeScreenerResult(
-  response: any,
-  query: string,
-  limit: number
-): ScreenerResult {
-  const rawQuotes = Array.isArray(response?.quotes) ? response.quotes : []
-  const quotes = rawQuotes.map(normalizeScreenerQuote).slice(0, limit)
-
-  return {
-    id: typeof response?.id === "string" ? response.id : query,
-    title:
-      typeof response?.title === "string"
-        ? response.title
-        : "Market data unavailable",
-    description:
-      typeof response?.description === "string" ? response.description : "",
-    canonicalName:
-      typeof response?.canonicalName === "string"
-        ? response.canonicalName
-        : query,
-    quotes,
-    start: Number.isFinite(response?.start) ? response.start : 0,
-    count: Number.isFinite(response?.count) ? response.count : quotes.length,
-    total: Number.isFinite(response?.total) ? response.total : quotes.length,
-  }
-}
-
-export async function fetchScreenerStocks(
+export async function loadScreenerStocks(
   query: string,
   count?: number
 ): Promise<ScreenerResult> {
@@ -184,7 +157,7 @@ type ScreenerApiResponse = {
   }
 }
 
-function normalizeScreenerResult(
+function buildScreenerResult(
   response: any,
   query: string,
   limit: number
@@ -236,7 +209,7 @@ export async function loadScreenerStocks(
       throw new Error("No screener results returned")
     }
 
-    return normalizeScreenerResult(response, query, limit)
+    return buildScreenerResult(response, query, limit)
   } catch (error) {
     console.warn("Failed to fetch screener stocks", error)
 
