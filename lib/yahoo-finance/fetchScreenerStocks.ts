@@ -198,7 +198,7 @@ function buildScreenerResult(
   }
 }
 
-export async function fetchYahooScreenerStocks(
+export async function fetchScreenerData(
   query: string,
   count?: number
 ): Promise<ScreenerResult> {
