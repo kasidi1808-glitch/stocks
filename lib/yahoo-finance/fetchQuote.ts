@@ -90,12 +90,6 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
     return new Map()
   }
 
-  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
-  const yahooQuote = yahooQuotes.get(tickerSymbol)
-  if (yahooQuote) {
-    return yahooQuote
-  }
-
   try {
     const data = await yahooFinanceFetch<QuoteApiResponse>("v7/finance/quote", {
       symbols: symbols.join(","),
@@ -117,6 +111,57 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
     console.warn("Failed to fetch Yahoo quotes", error)
     return getOfflineQuotes(symbols)
   }
+}
+
+export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
+  noStore()
+
+  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
+  const yahooQuote = yahooQuotes.get(tickerSymbol)
+  if (yahooQuote) {
+    return yahooQuote
+  }
+
+  try {
+    const fmpQuote = await fetchFmpQuote(tickerSymbol)
+    if (fmpQuote) {
+      return fmpQuote
+    }
+  } catch (error) {
+    console.warn(`FMP quote lookup failed for ${tickerSymbol}`, error)
+  }
+
+  const offlineQuote = getOfflineQuote(tickerSymbol)
+  if (offlineQuote) {
+    return offlineQuote
+  }
+
+  return createEmptyQuote(tickerSymbol)
+}
+
+export async function loadQuotesForSymbols(
+  tickers: string[]
+): Promise<Map<string, Quote>> {
+  const uniqueTickers = Array.from(new Set(tickers))
+  const quotes = await fetchYahooQuotes(uniqueTickers)
+
+  const missingTickers = uniqueTickers.filter(
+    (ticker) => !quotes.has(ticker)
+  )
+
+  for (const ticker of missingTickers) {
+    try {
+      const fallbackQuote = await fetchQuote(ticker)
+
+      if (fallbackQuote) {
+        quotes.set(ticker, fallbackQuote)
+      }
+    } catch (error) {
+      console.warn(`Failed to hydrate quote for ${ticker}`, error)
+    }
+  }
+
+  return quotes
 }
 
 export async function fetchQuote(tickerSymbol: string): Promise<Quote> {

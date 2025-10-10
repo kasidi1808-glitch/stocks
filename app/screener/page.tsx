@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { columns } from "@/app/screener/components/columns"
 import { DataTable } from "@/app/screener/components/data-table"
 import { DEFAULT_SCREENER } from "@/lib/yahoo-finance/constants"
-import { loadScreenerStocks } from "@/lib/yahoo-finance/fetchScreenerStocks"
+import { fetchYahooScreenerStocks } from "@/lib/yahoo-finance/fetchScreenerStocks"
 
 export const metadata: Metadata = {
   title: "Finly: Stock screener",
@@ -17,7 +17,7 @@ export default async function ScreenerPage({
 }) {
   const screener = searchParams?.screener || DEFAULT_SCREENER
 
-  const screenerDataResults = await loadScreenerStocks(screener)
+  const screenerDataResults = await fetchYahooScreenerStocks(screener)
 
   return (
     <div>

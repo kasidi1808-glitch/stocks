@@ -68,7 +68,21 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
   }
 }
 
-const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const
+const FALLBACK_SYMBOLS =
+  [
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "TSLA",
+    "NVDA",
+    "META",
+    "JPM",
+    "JNJ",
+    "XOM",
+    "PG",
+    "KO",
+  ] as const
 
 function toScreenerQuote(symbol: string): ScreenerQuote {
   const offlineQuote = getOfflineQuote(symbol)
@@ -184,7 +198,7 @@ function buildScreenerResult(
   }
 }
 
-export async function loadScreenerStocks(
+export async function fetchYahooScreenerStocks(
   query: string,
   count?: number
 ): Promise<ScreenerResult> {
