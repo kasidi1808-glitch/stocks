@@ -8,18 +8,10 @@ https://github.com/DariusLukasukas/stocks/assets/64962012/d81789c6-18ee-4217-ba2
 
 ## Key Features
 
-- Robust Stock Search and Screening: Quickly find relevant stocks using intuitive search tools and apply filters based on key metrics.
-- In-depth Company Information:
-  - Real-time stock quotes and historical pricing data
-  - Comprehensive financial statements (income statement, balance sheet, cash flow)
-  - Key ratios and fundamental metrics
-  - Detailed company profiles and summaries
-- Interactive Charting Tools:
-  - Customizable Visx area charts for visualizing market trends and patterns
-  - Adjustable timeframes (intraday, daily, weekly, monthly, etc.)
-- Market News Integration:
-  - Curated feed of relevant news articles and analysis
-  - Ability to filter news sources by relevance and sector
+- **Robust stock search & screening.** Discover equities in seconds with type-ahead search, curated market catalogs, and a screener that surfaces valuation, momentum, and fundamentals side by side. Layer on metric-based filters to zero in on the opportunities that match your strategy.
+- **In-depth company intelligence.** Dive beyond price action with real-time quotes, extended historical pricing, and rich financial statements (income, balance sheet, cash flow). Each profile consolidates key ratios, fundamentals, and narrative summaries so you can understand a business at a glance.
+- **Interactive charting built with Visx.** Explore trends through customizable area charts that support intraday, daily, weekly, and monthly views. Toggle between intervals, compare movements, and keep charts in sync with the latest market snapshot via automatic refresh.
+- **Integrated market news.** Stay ahead of catalysts with a curated stream of headlines, analysis, and sector-level filters that keep the most relevant stories alongside the tickers you track.
 
 ## Development Roadmap:
 
