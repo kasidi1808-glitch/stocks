@@ -1,66 +1,120 @@
+import { loadQuotesBatch } from "@/lib/yahoo-finance/fetchQuote"
 import { cn } from "@/lib/utils"
-
-async function fetchSectorPerformance() {
-  const url = `https://financialmodelingprep.com/api/v3/sector-performance?apikey=${process.env.FMP_API_KEY}`
-  const options = {
-    method: "GET",
-    next: {
-      revalidate: 3600,
-    },
-  }
-  const res = await fetch(url, options)
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch sector performance")
-  }
-  return res.json()
-}
 
 interface Sector {
   sector: string
-  changesPercentage: string
+  changesPercentage: number | null
+}
+
+const SECTOR_ETFS = [
+  { sector: "Communication Services", symbol: "XLC" },
+  { sector: "Consumer Cyclical", symbol: "XLY" },
+  { sector: "Consumer Defensive", symbol: "XLP" },
+  { sector: "Energy", symbol: "XLE" },
+  { sector: "Financial Services", symbol: "XLF" },
+  { sector: "Healthcare", symbol: "XLV" },
+  { sector: "Industrials", symbol: "XLI" },
+  { sector: "Real Estate", symbol: "XLRE" },
+  { sector: "Technology", symbol: "XLK" },
+  { sector: "Utilities", symbol: "XLU" },
+]
+
+const FALLBACK_SECTOR_PERFORMANCE: Sector[] = SECTOR_ETFS.map((sector) => ({
+  sector: sector.sector,
+  changesPercentage: null,
+}))
+
+async function fetchSectorPerformance(): Promise<Sector[]> {
+  try {
+    const symbols = SECTOR_ETFS.map((item) => item.symbol)
+    const quotes = await loadQuotesBatch(symbols)
+
+    const sectors = SECTOR_ETFS.map(({ sector, symbol }) => {
+      const quote = quotes.get(symbol)
+      const changePercent =
+        typeof quote?.regularMarketChangePercent === "number"
+          ? quote.regularMarketChangePercent
+          : null
+
+      return {
+        sector,
+        changesPercentage: changePercent,
+      }
+    })
+
+    const hasLiveData = sectors.some(
+      (item) => typeof item.changesPercentage === "number"
+    )
+
+    if (!hasLiveData) {
+      return FALLBACK_SECTOR_PERFORMANCE
+    }
+
+    return sectors
+  } catch (error) {
+    console.warn("Failed to load Yahoo Finance sector performance", error)
+    return FALLBACK_SECTOR_PERFORMANCE
+  }
 }
 
 export default async function SectorPerformance() {
-  const data = (await fetchSectorPerformance()) as Sector[]
+  const data = await fetchSectorPerformance()
 
-  if (!data) {
+  if (!data || data.length === 0) {
     return null
   }
 
-  const totalChangePercentage = data.reduce((total, sector) => {
-    return total + parseFloat(sector.changesPercentage)
+  const parsedChanges = data
+    .map((sector) => sector.changesPercentage)
+    .filter((value): value is number => typeof value === "number")
+
+  const totalChangePercentage = parsedChanges.reduce((total, value) => {
+    return total + value
   }, 0)
 
   const averageChangePercentage =
-    (totalChangePercentage / data.length).toFixed(2) + "%"
+    parsedChanges.length > 0
+      ? totalChangePercentage / parsedChanges.length
+      : null
 
   const allSectors = {
     sector: "All sectors",
     changesPercentage: averageChangePercentage,
   }
-  data.unshift(allSectors)
+  const sectorsWithAggregate = [allSectors, ...data]
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {data.map((sector: Sector) => (
-        <div
-          key={sector.sector}
-          className="flex w-full flex-row items-center justify-between text-sm"
-        >
-          <span className="font-medium">{sector.sector}</span>
-          <span
-            className={cn(
-              "w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right transition-colors",
-              parseFloat(sector.changesPercentage) > 0
-                ? "bg-gradient-to-l from-green-300 text-green-800 dark:from-green-950 dark:text-green-400"
-                : "bg-gradient-to-l from-red-300 text-red-800 dark:from-red-950 dark:text-red-500"
-            )}
+      {sectorsWithAggregate.map((sector: Sector) => {
+        const numericChange = sector.changesPercentage
+        const isFiniteChange = typeof numericChange === "number"
+        const formattedChange = isFiniteChange
+          ? `${numericChange.toFixed(2)}%`
+          : "—"
+        const isPositive = isFiniteChange && numericChange > 0
+        const isNegative = isFiniteChange && numericChange < 0
+
+        return (
+          <div
+            key={sector.sector}
+            className="flex w-full flex-row items-center justify-between text-sm"
           >
-            {parseFloat(sector.changesPercentage).toFixed(2) + "%"}
-          </span>
-        </div>
-      ))}
+            <span className="font-medium">{sector.sector}</span>
+            <span
+              className={cn(
+                "w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right transition-colors",
+                isPositive
+                  ? "bg-gradient-to-l from-green-300 text-green-800 dark:from-green-950 dark:text-green-400"
+                  : isNegative
+                    ? "bg-gradient-to-l from-red-300 text-red-800 dark:from-red-950 dark:text-red-500"
+                    : "bg-muted text-muted-foreground dark:bg-muted/30"
+              )}
+            >
+              {formattedChange}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
