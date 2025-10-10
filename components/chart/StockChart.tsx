@@ -2,7 +2,6 @@ import { cn } from "@/lib/utils"
 import { fetchChartData } from "@/lib/yahoo-finance/fetchChartData"
 import type { Interval, Range } from "@/types/yahoo-finance"
 import AreaClosedChart from "./AreaClosedChart"
-import yahooFinance from "yahoo-finance2"
 import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
 
 interface StockGraphProps {
@@ -70,8 +69,8 @@ export default async function StockChart({
                 {quote.regularMarketPrice?.toFixed(2)}
               </span>
               <span className="font-semibold">
-                {quote.regularMarketChange &&
-                quote.regularMarketChangePercent !== undefined ? (
+                {quote.regularMarketChange != null &&
+                quote.regularMarketChangePercent != null ? (
                   quote.regularMarketChange > 0 ? (
                     <span className="text-green-800 dark:text-green-400">
                       +{quote.regularMarketChange.toFixed(2)} (+
@@ -87,7 +86,7 @@ export default async function StockChart({
               </span>
             </span>
             <span className="inline space-x-1 font-semibold text-muted-foreground">
-              {quote.hasPrePostMarketData && quote.postMarketPrice && (
+              {quote.hasPrePostMarketData && quote.postMarketPrice != null && (
                 <>
                   <span>·</span>
                   <span>
@@ -95,8 +94,8 @@ export default async function StockChart({
                     {quote.postMarketPrice.toFixed(2)}
                   </span>
                   <span>
-                    {quote.postMarketChange &&
-                    quote.postMarketChangePercent !== undefined ? (
+                    {quote.postMarketChange != null &&
+                    quote.postMarketChangePercent != null ? (
                       quote.postMarketChange > 0 ? (
                         <span className="text-green-800 dark:text-green-400">
                           +{quote.postMarketChange.toFixed(2)} (+
@@ -112,7 +111,7 @@ export default async function StockChart({
                   </span>
                 </>
               )}
-              {quote.hasPrePostMarketData && quote.preMarketPrice && (
+              {quote.hasPrePostMarketData && quote.preMarketPrice != null && (
                 <>
                   <span>·</span>
                   <span>
@@ -120,8 +119,8 @@ export default async function StockChart({
                     {quote.preMarketPrice.toFixed(2)}
                   </span>
                   <span>
-                    {quote.preMarketChange &&
-                    quote.preMarketChangePercent !== undefined ? (
+                    {quote.preMarketChange != null &&
+                    quote.preMarketChangePercent != null ? (
                       quote.preMarketChange > 0 ? (
                         <span className="text-green-800 dark:text-green-400">
                           +{quote.preMarketChange.toFixed(2)} (+
