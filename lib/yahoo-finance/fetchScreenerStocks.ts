@@ -89,21 +89,6 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
   }
 }
 
-type ScreenerApiResponse = {
-  finance?: {
-    result?: Array<{
-      id?: string
-      title?: string
-      description?: string
-      canonicalName?: string
-      start?: number
-      count?: number
-      total?: number
-      quotes?: any[]
-    }>
-  }
-}
-
 function normalizeScreenerResult(
   response: any,
   query: string,
@@ -226,7 +211,7 @@ function normalizeScreenerResult(
   }
 }
 
-export async function fetchScreenerStocks(
+export async function loadScreenerStocks(
   query: string,
   count?: number
 ): Promise<ScreenerResult> {
