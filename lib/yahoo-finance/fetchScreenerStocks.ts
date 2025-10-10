@@ -198,7 +198,7 @@ function buildScreenerResult(
   }
 }
 
-export async function fetchScreenerData(
+export async function fetchScreenerResults(
   query: string,
   count?: number
 ): Promise<ScreenerResult> {
