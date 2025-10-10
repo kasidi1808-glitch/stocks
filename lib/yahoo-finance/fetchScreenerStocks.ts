@@ -11,6 +11,7 @@ import { getOfflineQuote } from "@/data/offlineQuotes"
 import { yahooFinanceFetch } from "./client"
 
 const ITEMS_PER_PAGE = 40
+const MAX_PAGES = 25
 
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -38,6 +39,15 @@ function calculatePe(price: number | null, eps: number | null): number | null {
   if (!Number.isFinite(ratio) || ratio <= 0) {
     return null
   }
+}
+
+export async function fetchScreenerResults(
+  query: string,
+  count?: number
+): Promise<ScreenerResult> {
+  noStore()
+
+  const limit = count ?? ITEMS_PER_PAGE
 
   return ratio
 }
@@ -124,15 +134,6 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
       trailingPE: null,
     }
   }
-}
-
-export async function fetchScreenerResults(
-  query: string,
-  count?: number
-): Promise<ScreenerResult> {
-  noStore()
-
-  const limit = count ?? ITEMS_PER_PAGE
 
   const regularMarketPrice = toNumber(offlineQuote.regularMarketPrice)
   const epsTrailingTwelveMonths = toNumber(offlineQuote.trailingEps)
@@ -197,11 +198,9 @@ type ScreenerApiResponse = {
 function buildScreenerResult(
   response: any,
   query: string,
-  limit: number
+  quotes: ScreenerQuote[],
+  total: number
 ): ScreenerResult {
-  const rawQuotes = Array.isArray(response?.quotes) ? response.quotes : []
-  const quotes = rawQuotes.map(normalizeScreenerQuote).slice(0, limit)
-
   return {
     id: typeof response?.id === "string" ? response.id : query,
     title:
@@ -215,10 +214,35 @@ function buildScreenerResult(
         ? response.canonicalName
         : query,
     quotes,
-    start: Number.isFinite(response?.start) ? response.start : 0,
-    count: Number.isFinite(response?.count) ? response.count : quotes.length,
-    total: Number.isFinite(response?.total) ? response.total : quotes.length,
+    start: 0,
+    count: quotes.length,
+    total,
   }
+}
+
+async function fetchScreenerPage(
+  query: string,
+  start: number,
+  limit: number
+): Promise<any> {
+  const data = await yahooFinanceFetch<ScreenerApiResponse>(
+    "v1/finance/screener/predefined/saved",
+    {
+      scrIds: query as PredefinedScreenerModules,
+      count: limit,
+      start,
+      region: "US",
+      lang: "en-US",
+    }
+  )
+
+  const response = data.finance?.result?.[0]
+
+  if (!response) {
+    throw new Error("No screener results returned")
+  }
+
+  return response
 }
 
 export async function fetchScreenerResults(
@@ -227,32 +251,93 @@ export async function fetchScreenerResults(
 ): Promise<ScreenerResult> {
   noStore()
 
-  const limit = count ?? ITEMS_PER_PAGE
+  const desiredTotal = count ?? Number.POSITIVE_INFINITY
 
   try {
-    const data = await yahooFinanceFetch<ScreenerApiResponse>(
-      "v1/finance/screener/predefined/saved",
-      {
-        scrIds: query as PredefinedScreenerModules,
-        count: limit,
-        region: "US",
-        lang: "en-US",
+    const quotes: ScreenerQuote[] = []
+    const seenSymbols = new Set<string>()
+
+    let pageIndex = 0
+    let start = 0
+    let totalAvailable: number | null = null
+    let firstResponse: any | null = null
+
+    while (
+      quotes.length < desiredTotal &&
+      pageIndex < MAX_PAGES &&
+      (totalAvailable === null || start < totalAvailable)
+    ) {
+      const remaining =
+        desiredTotal === Number.POSITIVE_INFINITY
+          ? ITEMS_PER_PAGE
+          : Math.max(
+              0,
+              Math.min(ITEMS_PER_PAGE, desiredTotal - quotes.length)
+            )
+
+      if (remaining === 0) {
+        break
       }
-    )
 
-    const response = data.finance?.result?.[0]
+      const response = await fetchScreenerPage(query, start, remaining)
 
-    if (!response) {
-      throw new Error("No screener results returned")
+      if (!firstResponse) {
+        firstResponse = response
+      }
+
+      const rawQuotes = Array.isArray(response?.quotes) ? response.quotes : []
+      const normalizedQuotes = rawQuotes.map(normalizeScreenerQuote)
+
+      for (const quote of normalizedQuotes) {
+        if (!quote.symbol || seenSymbols.has(quote.symbol)) {
+          continue
+        }
+
+        quotes.push(quote)
+        seenSymbols.add(quote.symbol)
+
+        if (quotes.length >= desiredTotal) {
+          break
+        }
+      }
+
+      const received = normalizedQuotes.length
+
+      if (Number.isFinite(response?.total)) {
+        totalAvailable = response.total as number
+      } else if (totalAvailable === null) {
+        totalAvailable = received
+      }
+
+      if (received <= 0) {
+        break
+      }
+
+      start += received
+      pageIndex += 1
     }
 
-    return buildScreenerResult(response, query, limit)
+    if (!firstResponse || quotes.length === 0) {
+      throw new Error("No screener quotes returned")
+    }
+
+    const total = Math.max(
+      quotes.length,
+      totalAvailable !== null ? totalAvailable : quotes.length
+    )
+
+    return buildScreenerResult(firstResponse, query, quotes, total)
   } catch (error) {
     console.warn("Failed to fetch screener stocks", error)
 
     return createFallbackResult(
       query,
-      limit,
+      Math.min(
+        typeof desiredTotal === "number" && Number.isFinite(desiredTotal)
+          ? desiredTotal
+          : FALLBACK_SYMBOLS.length,
+        FALLBACK_SYMBOLS.length
+      ),
       "Live screener results are currently unavailable. Showing placeholder symbols instead."
     )
   }
