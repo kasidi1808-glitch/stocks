@@ -1,4 +1,4 @@
-import { fetchQuotesBatch } from "@/lib/yahoo-finance/fetchQuote"
+import { loadQuotesBatch } from "@/lib/yahoo-finance/fetchQuote"
 import { cn } from "@/lib/utils"
 
 interface Sector {
@@ -27,7 +27,7 @@ const FALLBACK_SECTOR_PERFORMANCE: Sector[] = SECTOR_ETFS.map((sector) => ({
 async function fetchSectorPerformance(): Promise<Sector[]> {
   try {
     const symbols = SECTOR_ETFS.map((item) => item.symbol)
-    const quotes = await fetchQuotesBatch(symbols)
+    const quotes = await loadQuotesBatch(symbols)
 
     const sectors = SECTOR_ETFS.map(({ sector, symbol }) => {
       const quote = quotes.get(symbol)

@@ -2,7 +2,7 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import { fetchQuotesBatch } from "../yahoo-finance/fetchQuote"
+import { loadQuotesBatch } from "../yahoo-finance/fetchQuote"
 
 import type { MarketInstrument } from "./types"
 
@@ -54,7 +54,7 @@ export async function fetchMarketSnapshot(
   noStore()
 
   const symbols = instruments.map((instrument) => instrument.symbol)
-  const quotesBySymbol = await fetchQuotesBatch(symbols)
+  const quotesBySymbol = await loadQuotesBatch(symbols)
 
   return instruments.map((instrument) => {
     const quote = quotesBySymbol.get(instrument.symbol)
