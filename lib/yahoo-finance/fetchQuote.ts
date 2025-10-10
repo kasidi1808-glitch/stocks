@@ -8,6 +8,7 @@ import {
 } from "@/data/offlineQuotes"
 
 import { fetchFmpQuote } from "@/lib/fmp/quotes"
+import { isFmpApiAvailable } from "@/lib/fmp/client"
 
 import { yahooFinanceFetch } from "./client"
 
@@ -90,12 +91,6 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
     return new Map()
   }
 
-  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
-  const yahooQuote = yahooQuotes.get(tickerSymbol)
-  if (yahooQuote) {
-    return yahooQuote
-  }
-
   try {
     const data = await yahooFinanceFetch<QuoteApiResponse>("v7/finance/quote", {
       symbols: symbols.join(","),
@@ -128,13 +123,15 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return yahooQuote
   }
 
-  try {
-    const fmpQuote = await fetchFmpQuote(tickerSymbol)
-    if (fmpQuote) {
-      return fmpQuote
+  if (isFmpApiAvailable()) {
+    try {
+      const fmpQuote = await fetchFmpQuote(tickerSymbol)
+      if (fmpQuote) {
+        return fmpQuote
+      }
+    } catch (error) {
+      console.warn(`FMP quote lookup failed for ${tickerSymbol}`, error)
     }
-  } catch (error) {
-    console.warn(`FMP quote lookup failed for ${tickerSymbol}`, error)
   }
 
   const offlineQuote = getOfflineQuote(tickerSymbol)

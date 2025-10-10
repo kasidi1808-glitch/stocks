@@ -5,6 +5,7 @@ import type {
   SearchResult,
 } from "@/node_modules/yahoo-finance2/dist/esm/src/modules/search"
 import { fetchFmpNews } from "@/lib/fmp/news"
+import { isFmpApiAvailable } from "@/lib/fmp/client"
 import type { StockNewsResult } from "@/lib/fmp/news"
 
 export async function fetchStockSearch(
@@ -32,6 +33,10 @@ export async function fetchStockSearch(
     return { news: mappedNews }
   } catch (error) {
     console.log("Failed to fetch stock search", error)
+
+    if (!isFmpApiAvailable()) {
+      return { news: [] }
+    }
 
     try {
       return await fetchFmpNews(ticker, newsCount)
