@@ -6,6 +6,8 @@ import type {
   ScreenerResult,
 } from "@/types/yahoo-finance"
 
+import { getOfflineQuote } from "@/data/offlineQuotes"
+
 import { yahooFinanceFetch } from "./client"
 
 const ITEMS_PER_PAGE = 40
@@ -43,70 +45,50 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
   }
 }
 
-const FALLBACK_QUOTES: ScreenerQuote[] = [
-  {
-    symbol: "AAPL",
-    shortName: "Apple Inc.",
-    regularMarketPrice: null,
-    regularMarketChange: null,
-    regularMarketChangePercent: null,
-    regularMarketVolume: null,
-    averageDailyVolume3Month: null,
-    marketCap: null,
-    epsTrailingTwelveMonths: null,
-  },
-  {
-    symbol: "MSFT",
-    shortName: "Microsoft Corporation",
-    regularMarketPrice: null,
-    regularMarketChange: null,
-    regularMarketChangePercent: null,
-    regularMarketVolume: null,
-    averageDailyVolume3Month: null,
-    marketCap: null,
-    epsTrailingTwelveMonths: null,
-  },
-  {
-    symbol: "GOOGL",
-    shortName: "Alphabet Inc.",
-    regularMarketPrice: null,
-    regularMarketChange: null,
-    regularMarketChangePercent: null,
-    regularMarketVolume: null,
-    averageDailyVolume3Month: null,
-    marketCap: null,
-    epsTrailingTwelveMonths: null,
-  },
-  {
-    symbol: "AMZN",
-    shortName: "Amazon.com, Inc.",
-    regularMarketPrice: null,
-    regularMarketChange: null,
-    regularMarketChangePercent: null,
-    regularMarketVolume: null,
-    averageDailyVolume3Month: null,
-    marketCap: null,
-    epsTrailingTwelveMonths: null,
-  },
-  {
-    symbol: "TSLA",
-    shortName: "Tesla, Inc.",
-    regularMarketPrice: null,
-    regularMarketChange: null,
-    regularMarketChangePercent: null,
-    regularMarketVolume: null,
-    averageDailyVolume3Month: null,
-    marketCap: null,
-    epsTrailingTwelveMonths: null,
-  },
-]
+const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const
+
+function toScreenerQuote(symbol: string): ScreenerQuote {
+  const offlineQuote = getOfflineQuote(symbol)
+
+  if (!offlineQuote) {
+    return {
+      symbol,
+      shortName: symbol,
+      regularMarketPrice: null,
+      regularMarketChange: null,
+      regularMarketChangePercent: null,
+      regularMarketVolume: null,
+      averageDailyVolume3Month: null,
+      marketCap: null,
+      epsTrailingTwelveMonths: null,
+    }
+  }
+
+  return {
+    symbol: offlineQuote.symbol,
+    shortName: offlineQuote.shortName ?? offlineQuote.symbol,
+    regularMarketPrice: toNumber(offlineQuote.regularMarketPrice),
+    regularMarketChange: toNumber(offlineQuote.regularMarketChange),
+    regularMarketChangePercent: toNumber(
+      offlineQuote.regularMarketChangePercent
+    ),
+    regularMarketVolume: toNumber(offlineQuote.regularMarketVolume),
+    averageDailyVolume3Month: toNumber(
+      offlineQuote.averageDailyVolume3Month
+    ),
+    marketCap: toNumber(offlineQuote.marketCap),
+    epsTrailingTwelveMonths: toNumber(offlineQuote.trailingEps),
+  }
+}
 
 function createFallbackResult(
   query: string,
   limit: number,
   description: string
 ): ScreenerResult {
-  const quotes = FALLBACK_QUOTES.slice(0, limit)
+  const quotes = FALLBACK_SYMBOLS.slice(0, limit).map((symbol) =>
+    toScreenerQuote(symbol)
+  )
 
   return {
     id: query,
