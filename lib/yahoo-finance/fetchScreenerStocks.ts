@@ -103,7 +103,7 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
   }
 }
 
-export async function loadScreenerStocks(
+export async function fetchYahooScreenerStocks(
   query: string,
   count?: number
 ): Promise<ScreenerResult> {
