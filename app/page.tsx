@@ -23,6 +23,7 @@ import {
   validateRange,
 } from "@/lib/yahoo-finance/fetchChartData"
 import { fetchStockSearch } from "@/lib/yahoo-finance/fetchStockSearch"
+import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
 
 function isMarketOpen() {
   const now = new Date()
