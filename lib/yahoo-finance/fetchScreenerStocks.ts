@@ -90,6 +90,21 @@ const FALLBACK_SYMBOLS =
     "BAC",
     "WMT",
     "HD",
+    "V",
+    "MA",
+    "INTC",
+    "AMD",
+    "ADBE",
+    "CRM",
+    "PYPL",
+    "ABT",
+    "T",
+    "COST",
+    "NKE",
+    "MCD",
+    "QCOM",
+    "TXN",
+    "IBM",
   ] as const
 
 function toScreenerQuote(symbol: string): ScreenerQuote {
