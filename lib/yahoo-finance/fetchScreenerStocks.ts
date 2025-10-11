@@ -39,15 +39,6 @@ function calculatePe(price: number | null, eps: number | null): number | null {
   if (!Number.isFinite(ratio) || ratio <= 0) {
     return null
   }
-}
-
-export async function fetchScreenerResults(
-  query: string,
-  count?: number
-): Promise<ScreenerResult> {
-  noStore()
-
-  const limit = count ?? ITEMS_PER_PAGE
 
   return ratio
 }

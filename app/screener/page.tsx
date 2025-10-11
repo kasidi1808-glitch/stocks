@@ -1,4 +1,8 @@
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 import type { Metadata } from "next"
+
 import AutoRefresh from "@/components/AutoRefresh"
 import { columns } from "@/app/screener/components/columns"
 import { DataTable } from "@/app/screener/components/data-table"

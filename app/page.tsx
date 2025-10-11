@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 import AutoRefresh from "@/components/AutoRefresh"
 import MarketsChart from "@/components/chart/MarketsChart"
 import SectorPerformance from "@/components/stocks/SectorPerformance"

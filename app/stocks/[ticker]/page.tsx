@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 import StockChart from "@/components/chart/StockChart"
 import CompanySummaryCard from "@/app/stocks/[ticker]/components/CompanySummaryCard"
 import FinanceSummary from "@/app/stocks/[ticker]/components/FinanceSummary"
