@@ -106,6 +106,19 @@ const FALLBACK_SYMBOLS =
     "QCOM",
     "TXN",
     "IBM",
+    "UNH",
+    "LLY",
+    "MRK",
+    "PFE",
+    "CVS",
+    "BA",
+    "UPS",
+    "SBUX",
+    "CAT",
+    "HON",
+    "BLK",
+    "GS",
+    "C",
   ] as const
 
 function toScreenerQuote(symbol: string): ScreenerQuote {

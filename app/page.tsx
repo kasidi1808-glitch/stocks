@@ -57,6 +57,37 @@ function isMarketOpen() {
   }
 }
 
+function formatNewsTimestamp(
+  publishTime?: Date | string | number | null
+): string | null {
+  if (!publishTime) {
+    return null
+  }
+
+  const publishedDate =
+    publishTime instanceof Date ? publishTime : new Date(publishTime)
+
+  if (Number.isNaN(publishedDate.getTime())) {
+    return null
+  }
+
+  const diffMs = publishedDate.getTime() - Date.now()
+  const diffMinutes = Math.round(diffMs / (1000 * 60))
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+
+  if (Math.abs(diffMinutes) < 60) {
+    return rtf.format(diffMinutes, "minute")
+  }
+
+  const diffHours = Math.round(diffMinutes / 60)
+  if (Math.abs(diffHours) < 24) {
+    return rtf.format(diffHours, "hour")
+  }
+
+  const diffDays = Math.round(diffHours / 24)
+  return rtf.format(diffDays, "day")
+}
+
 function getMarketSentiment(changePercentage: number | undefined) {
   if (!changePercentage) {
     return "neutral"
@@ -83,17 +114,23 @@ export default async function Home({
     ? REGULAR_MARKET_INSTRUMENTS
     : PRE_MARKET_INSTRUMENTS
 
-  const ticker = searchParams?.ticker || instruments[0].symbol
-  const selectedInstrument = instruments.find(
-    (instrument) => instrument.symbol === ticker
-  )
+  const fallbackInstrument = instruments[0]
+  const requestedTicker = searchParams?.ticker
+  const selectedInstrument =
+    instruments.find((instrument) => instrument.symbol === requestedTicker) ??
+    fallbackInstrument
+  const ticker = selectedInstrument.symbol
+  const newsTicker = selectedInstrument.newsSymbol ?? selectedInstrument.symbol
   const range = validateRange(searchParams?.range || DEFAULT_RANGE)
   const interval = validateInterval(
     range,
     (searchParams?.interval as Interval) || DEFAULT_INTERVAL
   )
-  const news = await fetchStockSearch("^DJI", 1)
+  const news = await fetchStockSearch(newsTicker, 3)
   const firstNews = news.news?.[0]
+  const firstNewsTimestamp = formatNewsTimestamp(
+    firstNews?.providerPublishTime ?? null
+  )
 
   const marketQuotes: Quote[] = await fetchMarketSnapshot(instruments)
 
@@ -117,7 +154,7 @@ export default async function Home({
 
   return (
     <div className="flex flex-col gap-4">
-      <AutoRefresh intervalMs={60_000} />
+      <AutoRefresh intervalMs={45_000} />
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="w-full lg:w-1/2">
           <Card className="relative flex h-full min-h-[15rem] flex-col justify-between overflow-hidden">
@@ -130,7 +167,7 @@ export default async function Home({
             {firstNews && firstNews.title && (
               <CardFooter className="flex-col items-start">
                 <p className="mb-2 text-sm font-semibold text-neutral-500 dark:text-neutral-500">
-                  What you need to know today
+                  Latest on {selectedInstrument.shortName}
                 </p>
                 <Link
                   prefetch={false}
@@ -139,6 +176,15 @@ export default async function Home({
                 >
                   {firstNews.title}
                 </Link>
+                {(firstNews.publisher || firstNewsTimestamp) && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {firstNews.publisher && <span>{firstNews.publisher}</span>}
+                    {firstNews.publisher && firstNewsTimestamp && (
+                      <span aria-hidden="true"> • </span>
+                    )}
+                    {firstNewsTimestamp}
+                  </p>
+                )}
               </CardFooter>
             )}
             <div
@@ -173,7 +219,7 @@ export default async function Home({
                 ticker={ticker}
                 range={range}
                 interval={interval}
-                displayName={selectedInstrument?.shortName}
+                displayName={selectedInstrument.shortName}
               />
             </Suspense>
           </div>
