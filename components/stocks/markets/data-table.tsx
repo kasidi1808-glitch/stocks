@@ -34,7 +34,7 @@ export function DataTable<TData, TValue>({
   return (
     <div className="rounded-md">
       <Table>
-        <TableHeader className="hidden">
+        <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => {
