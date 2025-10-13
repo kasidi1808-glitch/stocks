@@ -5,6 +5,7 @@ import type { Quote } from "@/types/yahoo-finance"
 import { fetchFmpQuote } from "@/lib/fmp/quotes"
 import { isFmpApiAvailable } from "@/lib/fmp/client"
 import { getOfflineQuote, getOfflineQuotes } from "@/data/offlineQuotes"
+import { asFiniteNumber } from "@/lib/utils/numbers"
 
 import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"

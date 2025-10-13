@@ -1,4 +1,5 @@
 import type { Quote } from "@/types/yahoo-finance"
+import { asFiniteNumber, isFiniteNumber } from "@/lib/utils/numbers"
 import { fmpFetch } from "./client"
 
 export interface FmpQuote {
@@ -60,16 +61,15 @@ export function mapFmpQuoteToQuote(fmpQuote: FmpQuote): Quote {
     preMarketChangePercent,
   } = fmpQuote
 
-  const normalizedPrice =
-    typeof price === "number" && Number.isFinite(price) ? price : null
-  const normalizedEps = typeof eps === "number" && Number.isFinite(eps) ? eps : null
+  const normalizedPrice = asFiniteNumber(price)
+  const normalizedEps = asFiniteNumber(eps)
 
-  let normalizedPe = typeof pe === "number" && Number.isFinite(pe) ? pe : null
+  let normalizedPe = asFiniteNumber(pe)
 
   if (
-    (!normalizedPe || normalizedPe <= 0) &&
-    normalizedPrice !== null &&
-    normalizedEps !== null &&
+    (!isFiniteNumber(normalizedPe) || normalizedPe <= 0) &&
+    isFiniteNumber(normalizedPrice) &&
+    isFiniteNumber(normalizedEps) &&
     normalizedEps !== 0
   ) {
     const computedPe = normalizedPrice / normalizedEps

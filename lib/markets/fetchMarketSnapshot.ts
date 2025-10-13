@@ -4,8 +4,7 @@ import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
 
 import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
 import { loadQuoteSummary } from "../yahoo-finance/fetchQuoteSummary"
-import { getOfflineQuoteSummary } from "@/data/offlineQuoteSummaries"
-import { getOfflineQuote } from "@/data/offlineQuotes"
+import { hydratePeFromOfflineData } from "./quoteEnrichment"
 
 import type { MarketInstrument } from "./types"
 
@@ -303,49 +302,53 @@ function hydratePeFromOfflineData(symbol: string, quote: Quote): Quote {
   return merged
 }
 
+async function loadSummariesForSymbols(
+  symbols: string[]
+): Promise<Map<string, QuoteSummary | null>> {
+  if (symbols.length === 0) {
+    return new Map()
+  }
+
+  const uniqueSymbols = Array.from(new Set(symbols))
+
+  const entries = await Promise.all(
+    uniqueSymbols.map(async (symbol): Promise<[string, QuoteSummary | null]> => {
+      try {
+        const summary = await loadQuoteSummary(symbol)
+        return [symbol, summary]
+      } catch (error) {
+        console.warn(`Failed to load quote summary for ${symbol}`, error)
+        return [symbol, null]
+      }
+    })
+  )
+
+  return new Map(entries)
+}
+
 export async function fetchMarketSnapshot(
   instruments: MarketInstrument[]
 ): Promise<Quote[]> {
   noStore()
 
   const symbols = instruments.map((instrument) => instrument.symbol)
-  const [quotesBySymbol, summaries] = await Promise.all([
+  const [quotesBySymbol, summariesBySymbol] = await Promise.all([
     loadQuotesForSymbols(symbols),
-    Promise.all(
-      instruments.map(async (instrument) => {
-        try {
-          const summary = await loadQuoteSummary(instrument.symbol)
-          return [instrument.symbol, summary] as const
-        } catch (error) {
-          console.warn(
-            `Failed to fetch quote summary for ${instrument.symbol}`,
-            error
-          )
-          return [instrument.symbol, null] as const
-        }
-      })
-    ),
+    loadSummariesForSymbols(symbols),
   ])
-
-  const summaryBySymbol = new Map(summaries)
 
   return instruments.map((instrument) => {
     const quote = quotesBySymbol.get(instrument.symbol)
-    const summary = summaryBySymbol.get(instrument.symbol)
+    const summary = summariesBySymbol.get(instrument.symbol) ?? null
 
-    if (quote) {
-      const hydrated = hydratePeFromOfflineData(
-        instrument.symbol,
-        mergeQuoteWithSummary(quote, summary)
-      )
-      return applyInstrumentOverrides(hydrated, instrument)
-    }
+    const baseQuote = quote
+      ? applyInstrumentOverrides(quote, instrument)
+      : createPlaceholderQuote(instrument)
 
-    const placeholder = createPlaceholderQuote(instrument)
-    const hydratedPlaceholder = hydratePeFromOfflineData(
+    return hydratePeFromOfflineData(
       instrument.symbol,
-      mergeQuoteWithSummary(placeholder, summary)
+      baseQuote,
+      summary
     )
-    return applyInstrumentOverrides(hydratedPlaceholder, instrument)
   })
 }
