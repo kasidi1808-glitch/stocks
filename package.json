@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "export:offline-quotes": "node scripts/export-offline-quotes.js"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",
