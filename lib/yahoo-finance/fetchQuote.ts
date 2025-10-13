@@ -201,16 +201,6 @@ export const loadQuotesForSymbols = async (
   const uniqueTickers = Array.from(new Set(tickers))
   const quotes = await fetchYahooQuotes(uniqueTickers)
 
-  const missingTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
-
-  if (missingTickers.length > 0) {
-    const offlineQuotes = getOfflineQuotes(missingTickers)
-
-    offlineQuotes.forEach((quote, symbol) => {
-      quotes.set(symbol, quote)
-    })
-  }
-
   const unresolvedTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
 
   for (const ticker of unresolvedTickers) {
@@ -223,6 +213,16 @@ export const loadQuotesForSymbols = async (
     } catch (error) {
       console.warn(`Failed to hydrate quote for ${ticker}`, error)
     }
+  }
+
+  const stillMissing = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+
+  if (stillMissing.length > 0) {
+    const offlineQuotes = getOfflineQuotes(stillMissing)
+
+    offlineQuotes.forEach((quote, symbol) => {
+      quotes.set(symbol, quote)
+    })
   }
 
   return quotes
