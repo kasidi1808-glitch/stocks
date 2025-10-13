@@ -1,8 +1,13 @@
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 import type { Metadata } from "next"
+
+import AutoRefresh from "@/components/AutoRefresh"
 import { columns } from "@/app/screener/components/columns"
 import { DataTable } from "@/app/screener/components/data-table"
 import { DEFAULT_SCREENER } from "@/lib/yahoo-finance/constants"
-import { fetchScreenerStocks } from "@/lib/yahoo-finance/fetchScreenerStocks"
+import { fetchScreenerResults } from "@/lib/yahoo-finance/fetchScreenerStocks"
 
 export const metadata: Metadata = {
   title: "Finly: Stock screener",
@@ -17,10 +22,11 @@ export default async function ScreenerPage({
 }) {
   const screener = searchParams?.screener || DEFAULT_SCREENER
 
-  const screenerDataResults = await fetchScreenerStocks(screener)
+  const screenerDataResults = await fetchScreenerResults(screener)
 
   return (
     <div>
+      <AutoRefresh intervalMs={45_000} />
       <DataTable columns={columns} data={screenerDataResults.quotes} />
     </div>
   )
