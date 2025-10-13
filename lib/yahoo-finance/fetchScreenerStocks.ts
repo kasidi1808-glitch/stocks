@@ -30,6 +30,34 @@ function toNumber(value: unknown): number | null {
   return null
 }
 
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  return trimmed
+}
+
+function normalizeName(value: unknown, symbol: string): string | null {
+  const normalized = normalizeString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.toUpperCase() === symbol.toUpperCase()) {
+    return null
+  }
+
+  return normalized
+}
+
 function calculatePe(price: number | null, eps: number | null): number | null {
   if (price === null || eps === null || eps <= 0) {
     return null
@@ -53,10 +81,20 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     toNumber(rawQuote?.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
+  const rawSymbol =
+    normalizeString(rawQuote?.symbol) ?? normalizeString(rawQuote?.ticker) ?? ""
+  const symbol = rawSymbol
+  const shortNameCandidate = normalizeName(rawQuote?.shortName, symbol)
+  const displayNameCandidate =
+    normalizeName(rawQuote?.longName, symbol) ??
+    normalizeName(rawQuote?.displayName, symbol)
+  const shortName = shortNameCandidate ?? symbol
+  const longName = displayNameCandidate ?? shortName
+
   return {
-    symbol: typeof rawQuote?.symbol === "string" ? rawQuote.symbol : "",
-    shortName:
-      rawQuote?.shortName ?? rawQuote?.longName ?? rawQuote?.symbol ?? "",
+    symbol,
+    shortName,
+    longName,
     regularMarketPrice,
     regularMarketChange: toNumber(rawQuote?.regularMarketChange),
     regularMarketChangePercent: toNumber(
@@ -76,6 +114,7 @@ function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
   return {
     symbol,
     shortName: symbol,
+    longName: symbol,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -98,9 +137,17 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
     toNumber(quote.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
+  const resolvedSymbolRaw = normalizeString(quote.symbol)
+  const resolvedSymbol = resolvedSymbolRaw ?? symbol
+  const shortNameCandidate = normalizeName(quote.shortName, resolvedSymbol)
+  const longNameCandidate = normalizeName(quote.longName, resolvedSymbol)
+  const shortName = shortNameCandidate ?? resolvedSymbol
+  const longName = longNameCandidate ?? shortName
+
   return {
-    symbol: quote.symbol ?? symbol,
-    shortName: quote.shortName ?? quote.symbol ?? symbol,
+    symbol: resolvedSymbol,
+    shortName,
+    longName,
     regularMarketPrice,
     regularMarketChange: toNumber(quote.regularMarketChange),
     regularMarketChangePercent: toNumber(quote.regularMarketChangePercent),
