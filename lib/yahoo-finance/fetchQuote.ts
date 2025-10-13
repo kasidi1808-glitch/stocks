@@ -10,9 +10,12 @@ import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 
 function createEmptyQuote(ticker: string): Quote {
-  return {
-    symbol: ticker,
-    shortName: ticker,
+  const symbol = typeof ticker === "string" ? ticker.trim() : ticker
+
+  return applyCompanyNameFallbacks({
+    symbol: symbol || ticker,
+    shortName: symbol || ticker,
+    longName: null,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -37,7 +40,7 @@ function createEmptyQuote(ticker: string): Quote {
     preMarketChange: null,
     preMarketChangePercent: null,
     hasPrePostMarketData: false,
-  }
+  })
 }
 
 function asFiniteNumber(value: unknown): number | null {

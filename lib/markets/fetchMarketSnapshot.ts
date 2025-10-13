@@ -7,10 +7,45 @@ import { loadQuoteSummary } from "../yahoo-finance/fetchQuoteSummary"
 
 import type { MarketInstrument } from "./types"
 
+function normalizeString(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  return trimmed
+}
+
+function normalizeName(
+  value: string | null | undefined,
+  symbol: string
+): string | null {
+  const normalized = normalizeString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.toUpperCase() === symbol.toUpperCase()) {
+    return null
+  }
+
+  return normalized
+}
+
 function createPlaceholderQuote(instrument: MarketInstrument): Quote {
-  return {
-    symbol: instrument.symbol,
-    shortName: instrument.shortName,
+  const symbol = normalizeString(instrument.symbol) ?? ""
+  const fallbackName = normalizeName(instrument.shortName, symbol) ?? symbol
+
+  return applyCompanyNameFallbacks({
+    symbol,
+    shortName: fallbackName,
+    longName: fallbackName,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -35,18 +70,30 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
     preMarketChange: null,
     preMarketChangePercent: null,
     hasPrePostMarketData: false,
-  }
+  }, instrument.shortName)
 }
 
 function applyInstrumentOverrides(
   quote: Quote,
   instrument: MarketInstrument
 ): Quote {
-  return {
-    ...quote,
-    symbol: instrument.symbol,
-    shortName: instrument.shortName ?? quote.shortName ?? instrument.symbol,
-  }
+  const requestSymbol = normalizeString(instrument.symbol) ?? ""
+  const quoteSymbol = normalizeString(quote.symbol) ?? requestSymbol
+  const shortNameFromQuote = normalizeName(quote.shortName ?? null, quoteSymbol)
+  const longNameFromQuote = normalizeName(quote.longName ?? null, quoteSymbol)
+  const instrumentName = normalizeName(instrument.shortName, quoteSymbol)
+  const fallbackSymbol = quoteSymbol || requestSymbol
+  const fallbackName = instrumentName ?? shortNameFromQuote ?? fallbackSymbol
+
+  return applyCompanyNameFallbacks(
+    {
+      ...quote,
+      symbol: quoteSymbol,
+      shortName: shortNameFromQuote ?? fallbackName,
+      longName: longNameFromQuote ?? fallbackName,
+    },
+    instrument.shortName
+  )
 }
 
 function mergeQuoteWithSummary(

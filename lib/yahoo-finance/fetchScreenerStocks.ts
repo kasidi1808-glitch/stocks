@@ -10,6 +10,7 @@ import type {
 import { OFFLINE_SYMBOLS } from "@/data/offlineQuotes"
 import { yahooFinanceFetch } from "./client"
 import { loadQuotesForSymbols } from "./fetchQuote"
+import { applyCompanyNameFallbacks } from "@/lib/company-names"
 
 const ITEMS_PER_PAGE = 40
 const MAX_PAGES = 25
@@ -28,6 +29,34 @@ function toNumber(value: unknown): number | null {
   }
 
   return null
+}
+
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  return trimmed
+}
+
+function normalizeName(value: unknown, symbol: string): string | null {
+  const normalized = normalizeString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.toUpperCase() === symbol.toUpperCase()) {
+    return null
+  }
+
+  return normalized
 }
 
 function calculatePe(price: number | null, eps: number | null): number | null {
@@ -53,29 +82,41 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     toNumber(rawQuote?.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
-  return {
-    symbol: typeof rawQuote?.symbol === "string" ? rawQuote.symbol : "",
-    shortName:
-      rawQuote?.shortName ?? rawQuote?.longName ?? rawQuote?.symbol ?? "",
-    regularMarketPrice,
-    regularMarketChange: toNumber(rawQuote?.regularMarketChange),
-    regularMarketChangePercent: toNumber(
-      rawQuote?.regularMarketChangePercent
-    ),
-    regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
-    averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
-    marketCap: toNumber(rawQuote?.marketCap),
-    epsTrailingTwelveMonths,
-    trailingPE,
-  }
+  const rawSymbol =
+    normalizeString(rawQuote?.symbol) ?? normalizeString(rawQuote?.ticker) ?? ""
+  const symbol = rawSymbol
+  const shortNameCandidate = normalizeName(rawQuote?.shortName, symbol)
+  const displayNameCandidate =
+    normalizeName(rawQuote?.longName, symbol) ??
+    normalizeName(rawQuote?.displayName, symbol)
+
+  return applyCompanyNameFallbacks(
+    {
+      symbol,
+      shortName: shortNameCandidate ?? symbol,
+      longName: displayNameCandidate ?? shortNameCandidate ?? symbol,
+      regularMarketPrice,
+      regularMarketChange: toNumber(rawQuote?.regularMarketChange),
+      regularMarketChangePercent: toNumber(
+        rawQuote?.regularMarketChangePercent
+      ),
+      regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
+      averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
+      marketCap: toNumber(rawQuote?.marketCap),
+      epsTrailingTwelveMonths,
+      trailingPE,
+    },
+    rawQuote?.displayName
+  )
 }
 
 const FALLBACK_SYMBOLS = OFFLINE_SYMBOLS
 
 function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
-  return {
+  return applyCompanyNameFallbacks({
     symbol,
     shortName: symbol,
+    longName: symbol,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -84,7 +125,7 @@ function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
     marketCap: null,
     epsTrailingTwelveMonths: null,
     trailingPE: null,
-  }
+  })
 }
 
 function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuote {
@@ -98,9 +139,15 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
     toNumber(quote.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
-  return {
-    symbol: quote.symbol ?? symbol,
-    shortName: quote.shortName ?? quote.symbol ?? symbol,
+  const resolvedSymbolRaw = normalizeString(quote.symbol)
+  const resolvedSymbol = resolvedSymbolRaw ?? symbol
+  const shortNameCandidate = normalizeName(quote.shortName, resolvedSymbol)
+  const longNameCandidate = normalizeName(quote.longName, resolvedSymbol)
+
+  return applyCompanyNameFallbacks({
+    symbol: resolvedSymbol,
+    shortName: shortNameCandidate ?? resolvedSymbol,
+    longName: longNameCandidate ?? shortNameCandidate ?? resolvedSymbol,
     regularMarketPrice,
     regularMarketChange: toNumber(quote.regularMarketChange),
     regularMarketChangePercent: toNumber(quote.regularMarketChangePercent),
@@ -109,7 +156,7 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
     marketCap: toNumber(quote.marketCap),
     epsTrailingTwelveMonths,
     trailingPE,
-  }
+  })
 }
 
 async function createFallbackResult(
