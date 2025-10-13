@@ -59,6 +59,7 @@ export type Interval =
 export type Quote = {
   symbol: string
   shortName?: string | null
+  longName?: string | null
   regularMarketPrice?: number | null
   regularMarketChange?: number | null
   regularMarketChangePercent?: number | null
