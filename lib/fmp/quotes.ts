@@ -60,10 +60,29 @@ export function mapFmpQuoteToQuote(fmpQuote: FmpQuote): Quote {
     preMarketChangePercent,
   } = fmpQuote
 
+  const normalizedPrice =
+    typeof price === "number" && Number.isFinite(price) ? price : null
+  const normalizedEps = typeof eps === "number" && Number.isFinite(eps) ? eps : null
+
+  let normalizedPe = typeof pe === "number" && Number.isFinite(pe) ? pe : null
+
+  if (
+    (!normalizedPe || normalizedPe <= 0) &&
+    normalizedPrice !== null &&
+    normalizedEps !== null &&
+    normalizedEps !== 0
+  ) {
+    const computedPe = normalizedPrice / normalizedEps
+
+    if (Number.isFinite(computedPe) && computedPe > 0) {
+      normalizedPe = computedPe
+    }
+  }
+
   const mappedQuote: Quote = {
     symbol,
     shortName: name ?? symbol,
-    regularMarketPrice: price,
+    regularMarketPrice: normalizedPrice,
     regularMarketChange: change,
     regularMarketChangePercent: changesPercentage,
     regularMarketDayLow: dayLow,
@@ -75,8 +94,8 @@ export function mapFmpQuoteToQuote(fmpQuote: FmpQuote): Quote {
     averageDailyVolume3Month: avgVolume,
     regularMarketOpen: open,
     regularMarketPreviousClose: previousClose,
-    trailingEps: eps,
-    trailingPE: pe,
+    trailingEps: normalizedEps,
+    trailingPE: normalizedPe,
     fullExchangeName: exchange,
     currency,
     regularMarketTime: timestamp,

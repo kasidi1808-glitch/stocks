@@ -8,7 +8,7 @@ import Link from "next/link"
 export const columns: ColumnDef<Quote>[] = [
   {
     accessorKey: "shortName",
-    header: "Title",
+    header: "Company",
     cell: (props) => {
       const { row } = props
       const title = row.getValue("shortName") as string
