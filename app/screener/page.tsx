@@ -22,6 +22,7 @@ export default async function ScreenerPage({
 
   return (
     <div>
+      <AutoRefresh intervalMs={10_000} />
       <DataTable columns={columns} data={screenerDataResults.quotes} />
     </div>
   )
