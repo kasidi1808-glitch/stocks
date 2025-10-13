@@ -4,6 +4,7 @@ import type { Quote } from "@/types/yahoo-finance"
 
 import { fetchFmpQuote } from "@/lib/fmp/quotes"
 import { isFmpApiAvailable } from "@/lib/fmp/client"
+import { getOfflineQuote, getOfflineQuotes } from "@/data/offlineQuotes"
 
 import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
@@ -186,6 +187,11 @@ export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
     }
   }
 
+  const offlineQuote = getOfflineQuote(tickerSymbol)
+  if (offlineQuote) {
+    return offlineQuote
+  }
+
   return createEmptyQuote(tickerSymbol)
 }
 
@@ -207,6 +213,16 @@ export const loadQuotesForSymbols = async (
     } catch (error) {
       console.warn(`Failed to hydrate quote for ${ticker}`, error)
     }
+  }
+
+  const stillMissing = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+
+  if (stillMissing.length > 0) {
+    const offlineQuotes = getOfflineQuotes(stillMissing)
+
+    offlineQuotes.forEach((quote, symbol) => {
+      quotes.set(symbol, quote)
+    })
   }
 
   return quotes
