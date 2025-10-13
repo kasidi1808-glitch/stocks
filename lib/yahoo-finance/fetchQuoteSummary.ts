@@ -107,18 +107,6 @@ async function fetchQuoteSummaryFromFmp(
     return null
   }
 
-function normalizeQuoteSummary(raw: any): QuoteSummary {
-  if (!raw || typeof raw !== "object") {
-    return createEmptyQuoteSummary()
-  }
-
-  return {
-    summaryDetail: (raw.summaryDetail ?? {}) as QuoteSummary["summaryDetail"],
-    defaultKeyStatistics: (raw.defaultKeyStatistics ?? {}) as QuoteSummary["defaultKeyStatistics"],
-    summaryProfile: raw.summaryProfile ?? undefined,
-  }
-}
-
 async function fetchQuoteSummaryFromYahoo(
   ticker: string
 ): Promise<QuoteSummary | null> {
@@ -132,7 +120,9 @@ async function fetchQuoteSummaryFromYahoo(
   }
 }
 
-export async function loadQuoteSummary(ticker: string): Promise<QuoteSummary> {
+export const loadQuoteSummary = async (
+  ticker: string
+): Promise<QuoteSummary> => {
   noStore()
 
   const yahooQuoteSummary = await fetchQuoteSummaryFromYahoo(ticker)
