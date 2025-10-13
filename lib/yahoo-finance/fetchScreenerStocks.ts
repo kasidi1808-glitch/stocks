@@ -7,6 +7,7 @@ import type {
   ScreenerResult,
 } from "@/types/yahoo-finance"
 
+import { OFFLINE_SYMBOLS } from "@/data/offlineQuotes"
 import { yahooFinanceFetch } from "./client"
 import { loadQuotesForSymbols } from "./fetchQuote"
 
@@ -69,57 +70,7 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
   }
 }
 
-const FALLBACK_SYMBOLS =
-  [
-    "AAPL",
-    "MSFT",
-    "GOOGL",
-    "AMZN",
-    "TSLA",
-    "NVDA",
-    "META",
-    "JPM",
-    "JNJ",
-    "XOM",
-    "PG",
-    "KO",
-    "NFLX",
-    "DIS",
-    "PEP",
-    "ORCL",
-    "CSCO",
-    "BAC",
-    "WMT",
-    "HD",
-    "V",
-    "MA",
-    "INTC",
-    "AMD",
-    "ADBE",
-    "CRM",
-    "PYPL",
-    "ABT",
-    "T",
-    "COST",
-    "NKE",
-    "MCD",
-    "QCOM",
-    "TXN",
-    "IBM",
-    "UNH",
-    "LLY",
-    "MRK",
-    "PFE",
-    "CVS",
-    "BA",
-    "UPS",
-    "SBUX",
-    "CAT",
-    "HON",
-    "BLK",
-    "GS",
-    "C",
-  ] as const
+const FALLBACK_SYMBOLS = OFFLINE_SYMBOLS
 
 function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
   return {

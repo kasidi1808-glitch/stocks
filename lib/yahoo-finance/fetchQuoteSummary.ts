@@ -1,8 +1,9 @@
 import { unstable_noStore as noStore } from "next/cache"
 
-import type { QuoteSummary } from "@/types/yahoo-finance"
+import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
 
 import { getOfflineQuoteSummary } from "@/data/offlineQuoteSummaries"
+import { getOfflineQuote } from "@/data/offlineQuotes"
 
 import { yahooFinanceFetch } from "./client"
 import { isFmpApiAvailable } from "@/lib/fmp/client"
@@ -11,6 +12,43 @@ function createEmptyQuoteSummary(): QuoteSummary {
   return {
     summaryDetail: {},
     defaultKeyStatistics: {},
+  }
+}
+
+function pruneSection<T extends Record<string, unknown>>(section: T): T | undefined {
+  const entries = Object.entries(section).filter(([, value]) => value != null)
+
+  if (entries.length === 0) {
+    return undefined
+  }
+
+  return Object.fromEntries(entries) as T
+}
+
+function buildSummaryFromQuote(quote: Quote): QuoteSummary | null {
+  const summaryDetail = pruneSection({
+    open: quote.regularMarketOpen ?? null,
+    dayHigh: quote.regularMarketDayHigh ?? null,
+    dayLow: quote.regularMarketDayLow ?? null,
+    volume: quote.regularMarketVolume ?? null,
+    trailingPE: quote.trailingPE ?? null,
+    marketCap: quote.marketCap ?? null,
+    fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh ?? null,
+    fiftyTwoWeekLow: quote.fiftyTwoWeekLow ?? null,
+    averageVolume: quote.averageDailyVolume3Month ?? null,
+  })
+
+  const defaultKeyStatistics = pruneSection({
+    trailingEps: quote.trailingEps ?? null,
+  })
+
+  if (!summaryDetail && !defaultKeyStatistics) {
+    return null
+  }
+
+  return {
+    summaryDetail,
+    defaultKeyStatistics,
   }
 }
 
@@ -69,6 +107,21 @@ async function fetchQuoteSummaryFromFmp(
     return null
   }
 
+function normalizeQuoteSummary(raw: any): QuoteSummary {
+  if (!raw || typeof raw !== "object") {
+    return createEmptyQuoteSummary()
+  }
+
+  return {
+    summaryDetail: (raw.summaryDetail ?? {}) as QuoteSummary["summaryDetail"],
+    defaultKeyStatistics: (raw.defaultKeyStatistics ?? {}) as QuoteSummary["defaultKeyStatistics"],
+    summaryProfile: raw.summaryProfile ?? undefined,
+  }
+}
+
+async function fetchQuoteSummaryFromYahoo(
+  ticker: string
+): Promise<QuoteSummary | null> {
   try {
     const { fetchFmpQuoteSummary } = await import("@/lib/fmp/quoteSummary")
 
@@ -95,6 +148,14 @@ export async function loadQuoteSummary(ticker: string): Promise<QuoteSummary> {
   const offlineSummary = getOfflineQuoteSummary(ticker)
   if (offlineSummary) {
     return offlineSummary
+  }
+
+  const offlineQuote = getOfflineQuote(ticker)
+  if (offlineQuote) {
+    const generatedSummary = buildSummaryFromQuote(offlineQuote)
+    if (generatedSummary) {
+      return generatedSummary
+    }
   }
 
   console.warn(`Returning empty quote summary for ${ticker}`)
