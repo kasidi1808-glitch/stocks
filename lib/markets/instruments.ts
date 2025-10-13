@@ -11,7 +11,6 @@ export const PRE_MARKET_INSTRUMENTS: MarketInstrument[] = [
   { symbol: "NG=F", shortName: "Natural Gas" },
   { symbol: "EURUSD=X", shortName: "EUR/USD" },
   { symbol: "^TNX", shortName: "10-Yr Treasury" },
-  { symbol: "BTC-USD", shortName: "Bitcoin" },
 ]
 
 export const REGULAR_MARKET_INSTRUMENTS: MarketInstrument[] = [
@@ -35,16 +34,4 @@ export const REGULAR_MARKET_INSTRUMENTS: MarketInstrument[] = [
   { symbol: "NG=F", shortName: "Natural Gas" },
   { symbol: "EURUSD=X", shortName: "EUR/USD" },
   { symbol: "^TNX", shortName: "10-Yr Treasury" },
-  { symbol: "BTC-USD", shortName: "Bitcoin" },
-  { symbol: "ETH-USD", shortName: "Ethereum" },
-  { symbol: "AAPL", shortName: "Apple Inc." },
-  { symbol: "MSFT", shortName: "Microsoft Corp." },
-  { symbol: "GOOGL", shortName: "Alphabet Inc." },
-  { symbol: "AMZN", shortName: "Amazon.com Inc." },
-  { symbol: "NVDA", shortName: "NVIDIA Corp." },
-  { symbol: "META", shortName: "Meta Platforms" },
-  { symbol: "TSLA", shortName: "Tesla Inc." },
-  { symbol: "JPM", shortName: "JPMorgan Chase" },
-  { symbol: "V", shortName: "Visa Inc." },
-  { symbol: "MA", shortName: "Mastercard Inc." },
 ]
