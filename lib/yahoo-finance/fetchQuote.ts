@@ -12,6 +12,7 @@ function createEmptyQuote(ticker: string): Quote {
   return {
     symbol: ticker,
     shortName: ticker,
+    longName: null,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -45,6 +46,7 @@ export function normalizeYahooQuote(response: any): Quote {
   return {
     symbol: response?.symbol ?? "",
     shortName: response?.shortName ?? response?.symbol ?? "",
+    longName: response?.longName ?? null,
     regularMarketPrice: response?.regularMarketPrice ?? null,
     regularMarketChange: response?.regularMarketChange ?? null,
     regularMarketChangePercent: response?.regularMarketChangePercent ?? null,

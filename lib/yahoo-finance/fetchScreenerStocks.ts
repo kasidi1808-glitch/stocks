@@ -55,8 +55,8 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
 
   return {
     symbol: typeof rawQuote?.symbol === "string" ? rawQuote.symbol : "",
-    shortName:
-      rawQuote?.shortName ?? rawQuote?.longName ?? rawQuote?.symbol ?? "",
+    shortName: rawQuote?.shortName ?? rawQuote?.symbol ?? "",
+    longName: rawQuote?.longName ?? rawQuote?.shortName ?? rawQuote?.symbol ?? "",
     regularMarketPrice,
     regularMarketChange: toNumber(rawQuote?.regularMarketChange),
     regularMarketChangePercent: toNumber(
@@ -76,6 +76,7 @@ function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
   return {
     symbol,
     shortName: symbol,
+    longName: null,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -101,6 +102,7 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
   return {
     symbol: quote.symbol ?? symbol,
     shortName: quote.shortName ?? quote.symbol ?? symbol,
+    longName: quote.longName ?? quote.shortName ?? quote.symbol ?? symbol,
     regularMarketPrice,
     regularMarketChange: toNumber(quote.regularMarketChange),
     regularMarketChangePercent: toNumber(quote.regularMarketChangePercent),
