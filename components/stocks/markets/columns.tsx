@@ -94,6 +94,35 @@ export const columns: ColumnDef<Quote>[] = [
     },
   },
   {
+    accessorKey: "trailingPE",
+    header: () => <div className="text-right">P/E</div>,
+    cell: (props) => {
+      const { row } = props
+
+      const trailingPe = row.original.trailingPE
+      if (isFiniteNumber(trailingPe) && trailingPe > 0) {
+        return <div className="text-right">{trailingPe.toFixed(2)}</div>
+      }
+
+      const price = row.original.regularMarketPrice
+      const trailingEps = row.original.trailingEps
+
+      if (
+        isFiniteNumber(price) &&
+        isFiniteNumber(trailingEps) &&
+        trailingEps !== 0
+      ) {
+        const computed = price / trailingEps
+
+        if (Number.isFinite(computed) && computed > 0) {
+          return <div className="text-right">{computed.toFixed(2)}</div>
+        }
+      }
+
+      return <div className="text-right text-muted-foreground">—</div>
+    },
+  },
+  {
     accessorKey: "regularMarketChange",
     header: () => <div className="text-right">Change</div>,
     cell: ({ row }) => {
