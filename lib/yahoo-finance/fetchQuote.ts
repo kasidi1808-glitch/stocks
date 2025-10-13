@@ -4,6 +4,7 @@ import type { Quote } from "@/types/yahoo-finance"
 
 import { fetchFmpQuote } from "@/lib/fmp/quotes"
 import { isFmpApiAvailable } from "@/lib/fmp/client"
+import { getOfflineQuote, getOfflineQuotes } from "@/data/offlineQuotes"
 
 import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
@@ -186,6 +187,11 @@ export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
     }
   }
 
+  const offlineQuote = getOfflineQuote(tickerSymbol)
+  if (offlineQuote) {
+    return offlineQuote
+  }
+
   return createEmptyQuote(tickerSymbol)
 }
 
@@ -195,11 +201,19 @@ export const loadQuotesForSymbols = async (
   const uniqueTickers = Array.from(new Set(tickers))
   const quotes = await fetchYahooQuotes(uniqueTickers)
 
-  const missingTickers = uniqueTickers.filter(
-    (ticker) => !quotes.has(ticker)
-  )
+  const missingTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
 
-  for (const ticker of missingTickers) {
+  if (missingTickers.length > 0) {
+    const offlineQuotes = getOfflineQuotes(missingTickers)
+
+    offlineQuotes.forEach((quote, symbol) => {
+      quotes.set(symbol, quote)
+    })
+  }
+
+  const unresolvedTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+
+  for (const ticker of unresolvedTickers) {
     try {
       const fallbackQuote = await fetchQuote(ticker)
 
