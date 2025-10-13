@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache"
 import type { Quote } from "@/types/yahoo-finance"
 
 import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
+import { applyCompanyNameFallbacks } from "@/lib/company-names"
 
 import type { MarketInstrument } from "./types"
 
@@ -41,7 +42,7 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
   const symbol = normalizeString(instrument.symbol) ?? ""
   const fallbackName = normalizeName(instrument.shortName, symbol) ?? symbol
 
-  return {
+  return applyCompanyNameFallbacks({
     symbol,
     shortName: fallbackName,
     longName: fallbackName,
@@ -69,7 +70,7 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
     preMarketChange: null,
     preMarketChangePercent: null,
     hasPrePostMarketData: false,
-  }
+  }, instrument.shortName)
 }
 
 function applyInstrumentOverrides(
@@ -84,12 +85,15 @@ function applyInstrumentOverrides(
   const fallbackSymbol = quoteSymbol || requestSymbol
   const fallbackName = instrumentName ?? shortNameFromQuote ?? fallbackSymbol
 
-  return {
-    ...quote,
-    symbol: quoteSymbol,
-    shortName: shortNameFromQuote ?? fallbackName,
-    longName: longNameFromQuote ?? fallbackName,
-  }
+  return applyCompanyNameFallbacks(
+    {
+      ...quote,
+      symbol: quoteSymbol,
+      shortName: shortNameFromQuote ?? fallbackName,
+      longName: longNameFromQuote ?? fallbackName,
+    },
+    instrument.shortName
+  )
 }
 
 export async function fetchMarketSnapshot(

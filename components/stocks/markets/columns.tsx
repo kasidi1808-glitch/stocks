@@ -4,6 +4,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
 
 import { cn } from "@/lib/utils"
+import { resolveCompanyName } from "@/lib/company-names"
 import type { Quote } from "@/types/yahoo-finance"
 
 const decimalFormatter = new Intl.NumberFormat("en-US", {
@@ -50,16 +51,16 @@ export const columns: ColumnDef<Quote>[] = [
     accessorKey: "longName",
     header: "Company",
     cell: ({ row }) => {
+      const symbol = row.getValue("symbol") as string | null
       const longName = row.getValue("longName") as string | null
-      const fallbackName =
-        row.original.shortName ?? row.original.symbol ?? undefined
+      const shortName = row.original.shortName
+      const resolvedName =
+        resolveCompanyName(symbol, longName, row.original.longName, shortName) ??
+        shortName ??
+        row.original.symbol
 
-      if (longName) {
-        return <span>{longName}</span>
-      }
-
-      if (fallbackName) {
-        return <span>{fallbackName}</span>
+      if (resolvedName) {
+        return <span>{resolvedName}</span>
       }
 
       return <span className="text-muted-foreground">—</span>

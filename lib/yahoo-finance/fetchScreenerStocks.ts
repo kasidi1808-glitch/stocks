@@ -10,6 +10,7 @@ import type {
 import { OFFLINE_SYMBOLS } from "@/data/offlineQuotes"
 import { yahooFinanceFetch } from "./client"
 import { loadQuotesForSymbols } from "./fetchQuote"
+import { applyCompanyNameFallbacks } from "@/lib/company-names"
 
 const ITEMS_PER_PAGE = 40
 const MAX_PAGES = 25
@@ -88,30 +89,31 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
   const displayNameCandidate =
     normalizeName(rawQuote?.longName, symbol) ??
     normalizeName(rawQuote?.displayName, symbol)
-  const shortName = shortNameCandidate ?? symbol
-  const longName = displayNameCandidate ?? shortName
 
-  return {
-    symbol,
-    shortName,
-    longName,
-    regularMarketPrice,
-    regularMarketChange: toNumber(rawQuote?.regularMarketChange),
-    regularMarketChangePercent: toNumber(
-      rawQuote?.regularMarketChangePercent
-    ),
-    regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
-    averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
-    marketCap: toNumber(rawQuote?.marketCap),
-    epsTrailingTwelveMonths,
-    trailingPE,
-  }
+  return applyCompanyNameFallbacks(
+    {
+      symbol,
+      shortName: shortNameCandidate ?? symbol,
+      longName: displayNameCandidate ?? shortNameCandidate ?? symbol,
+      regularMarketPrice,
+      regularMarketChange: toNumber(rawQuote?.regularMarketChange),
+      regularMarketChangePercent: toNumber(
+        rawQuote?.regularMarketChangePercent
+      ),
+      regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
+      averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
+      marketCap: toNumber(rawQuote?.marketCap),
+      epsTrailingTwelveMonths,
+      trailingPE,
+    },
+    rawQuote?.displayName
+  )
 }
 
 const FALLBACK_SYMBOLS = OFFLINE_SYMBOLS
 
 function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
-  return {
+  return applyCompanyNameFallbacks({
     symbol,
     shortName: symbol,
     longName: symbol,
@@ -123,7 +125,7 @@ function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
     marketCap: null,
     epsTrailingTwelveMonths: null,
     trailingPE: null,
-  }
+  })
 }
 
 function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuote {
@@ -141,13 +143,11 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
   const resolvedSymbol = resolvedSymbolRaw ?? symbol
   const shortNameCandidate = normalizeName(quote.shortName, resolvedSymbol)
   const longNameCandidate = normalizeName(quote.longName, resolvedSymbol)
-  const shortName = shortNameCandidate ?? resolvedSymbol
-  const longName = longNameCandidate ?? shortName
 
-  return {
+  return applyCompanyNameFallbacks({
     symbol: resolvedSymbol,
-    shortName,
-    longName,
+    shortName: shortNameCandidate ?? resolvedSymbol,
+    longName: longNameCandidate ?? shortNameCandidate ?? resolvedSymbol,
     regularMarketPrice,
     regularMarketChange: toNumber(quote.regularMarketChange),
     regularMarketChangePercent: toNumber(quote.regularMarketChangePercent),
@@ -156,7 +156,7 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
     marketCap: toNumber(quote.marketCap),
     epsTrailingTwelveMonths,
     trailingPE,
-  }
+  })
 }
 
 async function createFallbackResult(
