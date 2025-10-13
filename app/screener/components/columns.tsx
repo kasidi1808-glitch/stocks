@@ -3,6 +3,7 @@
 import { CellContext, ColumnDef } from "@tanstack/react-table"
 
 import { cn } from "@/lib/utils"
+import { resolveCompanyName } from "@/lib/company-names"
 import type { ScreenerQuote } from "@/types/yahoo-finance"
 import Link from "next/link"
 
@@ -65,7 +66,20 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "shortName",
+    id: COMPANY_COLUMN_ID,
+    accessorFn: (row) => {
+      const symbol = toNonEmptyString(row.symbol)
+      const longName = toNonEmptyString(row.longName)
+      const shortName = toNonEmptyString(row.shortName)
+
+      return (
+        resolveCompanyName(symbol, longName, shortName) ??
+        longName ??
+        shortName ??
+        symbol ??
+        row.symbol
+      )
+    },
     meta: "Company",
     header: "Company",
   },
