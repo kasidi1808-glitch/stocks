@@ -24,6 +24,12 @@ function toNumber(value: unknown): number | null {
 
 const NA_VALUE = "N/A"
 
+function toNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null
+}
+
+export const COMPANY_COLUMN_ID = "company"
+
 function formatNumber(value: unknown, fractionDigits = 2): string {
   const numeric = toNumber(value)
 
@@ -77,15 +83,26 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "shortName",
+    id: COMPANY_COLUMN_ID,
+    accessorFn: (row) => {
+      return (
+        toNonEmptyString(row.longName) ??
+        toNonEmptyString(row.shortName) ??
+        row.symbol
+      )
+    },
     meta: "Company",
     header: "Company",
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const name = row.getValue("shortName")
+      const { longName, shortName, symbol } = row.original
+      const displayName =
+        toNonEmptyString(longName) ??
+        toNonEmptyString(shortName) ??
+        toNonEmptyString(symbol)
 
-      if (typeof name === "string" && name.trim() !== "") {
-        return name
+      if (displayName) {
+        return displayName
       }
 
       return <span className="text-muted-foreground">{NA_VALUE}</span>
