@@ -2,7 +2,8 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
 
-import { fetchQuote } from "./fetchQuote"
+import { getOfflineQuoteSummary } from "@/data/offlineQuoteSummaries"
+import { getOfflineQuote } from "@/data/offlineQuotes"
 
 import { yahooFinanceFetch } from "./client"
 import { isFmpApiAvailable } from "@/lib/fmp/client"
@@ -116,9 +117,7 @@ async function fetchQuoteSummaryFromFmp(
   }
 }
 
-export const loadQuoteSummary = async (
-  ticker: string
-): Promise<QuoteSummary> => {
+export async function loadQuoteSummary(ticker: string): Promise<QuoteSummary> {
   noStore()
 
   const yahooQuoteSummary = await fetchQuoteSummaryFromYahoo(ticker)
@@ -131,14 +130,17 @@ export const loadQuoteSummary = async (
     return fmpQuoteSummary
   }
 
-  try {
-    const quote = await fetchQuote(ticker)
-    const generatedSummary = buildSummaryFromQuote(quote)
+  const offlineSummary = getOfflineQuoteSummary(ticker)
+  if (offlineSummary) {
+    return offlineSummary
+  }
+
+  const offlineQuote = getOfflineQuote(ticker)
+  if (offlineQuote) {
+    const generatedSummary = buildSummaryFromQuote(offlineQuote)
     if (generatedSummary) {
       return generatedSummary
     }
-  } catch (error) {
-    console.warn(`Unable to derive quote summary from live quote for ${ticker}`, error)
   }
 
   console.warn(`Returning empty quote summary for ${ticker}`)
