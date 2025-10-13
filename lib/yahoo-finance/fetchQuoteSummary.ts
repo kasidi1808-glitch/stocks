@@ -107,6 +107,9 @@ async function fetchQuoteSummaryFromFmp(
     return null
   }
 
+async function fetchQuoteSummaryFromYahoo(
+  ticker: string
+): Promise<QuoteSummary | null> {
   try {
     const { fetchFmpQuoteSummary } = await import("@/lib/fmp/quoteSummary")
 
