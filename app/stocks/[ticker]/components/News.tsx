@@ -6,7 +6,7 @@ import {
   differenceInDays,
 } from "date-fns"
 
-function timeAgo(publishTime: string) {
+function timeAgo(publishTime: string | Date) {
   const publishDate = new Date(publishTime)
   const now = new Date()
 
@@ -25,16 +25,17 @@ function timeAgo(publishTime: string) {
 
 export default async function News({ ticker }: { ticker: string }) {
   const newsData = await fetchStockSearch(ticker)
+  const articles = newsData.news ?? []
   const url = `https://uk.finance.yahoo.com/quote/${ticker}`
 
   return (
     <div className="w-4/5">
-      {newsData.news.length === 0 && (
+      {articles.length === 0 && (
         <div className="py-4 text-center text-sm font-medium text-muted-foreground">
           No Recent Stories
         </div>
       )}
-      {newsData.news.length > 0 && (
+      {articles.length > 0 && (
         <>
           <Link
             href={url}
@@ -60,7 +61,7 @@ export default async function News({ ticker }: { ticker: string }) {
             </i>
           </Link>
           <div className="flex flex-col gap-2">
-            {newsData.news.map((article) => (
+            {articles.map((article) => (
               <Link
                 key={article.uuid}
                 href={article.link}
@@ -69,7 +70,7 @@ export default async function News({ ticker }: { ticker: string }) {
               >
                 <span className="text-sm font-medium text-muted-foreground">
                   {article.publisher} -{" "}
-                  {timeAgo(article.providerPublishTime.toISOString())}
+                  {timeAgo(article.providerPublishTime)}
                 </span>
                 <span className="font-semibold">{article.title}</span>
                 <span className="text-sm font-medium text-muted-foreground">
