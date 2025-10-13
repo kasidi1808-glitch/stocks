@@ -10,6 +10,7 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
   return {
     symbol: instrument.symbol,
     shortName: instrument.shortName,
+    longName: instrument.shortName ?? instrument.symbol,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -45,6 +46,11 @@ function applyInstrumentOverrides(
     ...quote,
     symbol: instrument.symbol,
     shortName: instrument.shortName ?? quote.shortName ?? instrument.symbol,
+    longName:
+      quote.longName ??
+      instrument.shortName ??
+      quote.shortName ??
+      instrument.symbol,
   }
 }
 
