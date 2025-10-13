@@ -18,6 +18,7 @@ export type PredefinedScreenerModules =
 export type ScreenerQuote = {
   symbol: string
   shortName?: string | null
+  longName?: string | null
   regularMarketPrice?: number | null
   regularMarketChange?: number | null
   regularMarketChangePercent?: number | null
@@ -59,6 +60,7 @@ export type Interval =
 export type Quote = {
   symbol: string
   shortName?: string | null
+  longName?: string | null
   regularMarketPrice?: number | null
   regularMarketChange?: number | null
   regularMarketChangePercent?: number | null
