@@ -142,6 +142,29 @@ function mergeQuoteWithSummary(
   return merged
 }
 
+function mergeQuoteWithSummary(
+  quote: Quote,
+  summary?: QuoteSummary | null
+): Quote {
+  if (!summary) {
+    return quote
+  }
+
+  const merged: Quote = { ...quote }
+
+  const summaryPe = summary.summaryDetail?.trailingPE
+  if (typeof summaryPe === "number" && Number.isFinite(summaryPe) && summaryPe > 0) {
+    merged.trailingPE = summaryPe
+  }
+
+  const summaryEps = summary.defaultKeyStatistics?.trailingEps
+  if (typeof summaryEps === "number" && Number.isFinite(summaryEps)) {
+    merged.trailingEps = summaryEps
+  }
+
+  return merged
+}
+
 export async function fetchMarketSnapshot(
   instruments: MarketInstrument[]
 ): Promise<Quote[]> {
