@@ -1,9 +1,9 @@
 import { unstable_noStore as noStore } from "next/cache"
 
-import type { Quote } from "@/types/yahoo-finance"
+import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
 
 import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
-import { applyCompanyNameFallbacks } from "@/lib/company-names"
+import { loadQuoteSummary } from "../yahoo-finance/fetchQuoteSummary"
 
 import type { MarketInstrument } from "./types"
 
@@ -96,21 +96,66 @@ function applyInstrumentOverrides(
   )
 }
 
+function mergeQuoteWithSummary(
+  quote: Quote,
+  summary?: QuoteSummary | null
+): Quote {
+  if (!summary) {
+    return quote
+  }
+
+  const merged: Quote = { ...quote }
+
+  const summaryPe = summary.summaryDetail?.trailingPE
+  if (typeof summaryPe === "number" && Number.isFinite(summaryPe) && summaryPe > 0) {
+    merged.trailingPE = summaryPe
+  }
+
+  const summaryEps = summary.defaultKeyStatistics?.trailingEps
+  if (typeof summaryEps === "number" && Number.isFinite(summaryEps)) {
+    merged.trailingEps = summaryEps
+  }
+
+  return merged
+}
+
 export async function fetchMarketSnapshot(
   instruments: MarketInstrument[]
 ): Promise<Quote[]> {
   noStore()
 
   const symbols = instruments.map((instrument) => instrument.symbol)
-  const quotesBySymbol = await loadQuotesForSymbols(symbols)
+  const [quotesBySymbol, summaries] = await Promise.all([
+    loadQuotesForSymbols(symbols),
+    Promise.all(
+      instruments.map(async (instrument) => {
+        try {
+          const summary = await loadQuoteSummary(instrument.symbol)
+          return [instrument.symbol, summary] as const
+        } catch (error) {
+          console.warn(
+            `Failed to fetch quote summary for ${instrument.symbol}`,
+            error
+          )
+          return [instrument.symbol, null] as const
+        }
+      })
+    ),
+  ])
+
+  const summaryBySymbol = new Map(summaries)
 
   return instruments.map((instrument) => {
     const quote = quotesBySymbol.get(instrument.symbol)
+    const summary = summaryBySymbol.get(instrument.symbol)
 
     if (quote) {
-      return applyInstrumentOverrides(quote, instrument)
+      const hydrated = mergeQuoteWithSummary(quote, summary)
+      return applyInstrumentOverrides(hydrated, instrument)
     }
 
-    return createPlaceholderQuote(instrument)
+    const placeholder = createPlaceholderQuote(instrument)
+    const hydratedPlaceholder = mergeQuoteWithSummary(placeholder, summary)
+    return applyInstrumentOverrides(hydratedPlaceholder, instrument)
   })
 }

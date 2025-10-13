@@ -3,35 +3,17 @@
 import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
 
-import { cn } from "@/lib/utils"
-import { resolveCompanyName } from "@/lib/company-names"
-import type { Quote } from "@/types/yahoo-finance"
-
-const decimalFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
-const compactNumberFormatter = new Intl.NumberFormat("en-US", {
-  notation: "compact",
-  maximumFractionDigits: 2,
-})
-
-const peFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-})
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value)
+}
 
 export const columns: ColumnDef<Quote>[] = [
   {
     accessorKey: "symbol",
     header: "Symbol",
-    cell: ({ row }) => {
-      const symbol = row.getValue("symbol") as string | null
-
-      if (!symbol) {
-        return <span className="text-muted-foreground">—</span>
-      }
+    cell: (props) => {
+      const { row } = props
+      const symbol = row.getValue("symbol") as string
 
       return (
         <Link
@@ -48,32 +30,51 @@ export const columns: ColumnDef<Quote>[] = [
     },
   },
   {
-    accessorKey: "longName",
+    accessorKey: "shortName",
     header: "Company",
-    cell: ({ row }) => {
-      const symbol = row.getValue("symbol") as string | null
-      const longName = row.getValue("longName") as string | null
-      const shortName = row.original.shortName
-      const resolvedName =
-        resolveCompanyName(symbol, longName, row.original.longName, shortName) ??
-        shortName ??
-        row.original.symbol
+    cell: (props) => {
+      const { row } = props
+      const title = row.getValue("shortName") as string
+      const symbol = row.original.symbol
 
-      if (resolvedName) {
-        return <span>{resolvedName}</span>
-      }
-
-      return <span className="text-muted-foreground">—</span>
+      return (
+        <Link
+          prefetch={false}
+          href={{
+            pathname: "/",
+            query: { ticker: symbol },
+          }}
+          className="font-medium"
+        >
+          {symbol}
+        </Link>
+      )
     },
   },
   {
     accessorKey: "trailingPE",
     header: () => <div className="text-right">P/E</div>,
-    cell: ({ row }) => {
-      const trailingPE = row.getValue("trailingPE") as number | null
+    cell: (props) => {
+      const { row } = props
 
-      if (typeof trailingPE === "number") {
-        return <div className="text-right">{peFormatter.format(trailingPE)}</div>
+      const trailingPe = row.original.trailingPE
+      if (isFiniteNumber(trailingPe) && trailingPe > 0) {
+        return <div className="text-right">{trailingPe.toFixed(2)}</div>
+      }
+
+      const price = row.original.regularMarketPrice
+      const trailingEps = row.original.trailingEps
+
+      if (
+        isFiniteNumber(price) &&
+        isFiniteNumber(trailingEps) &&
+        trailingEps !== 0
+      ) {
+        const computed = price / trailingEps
+
+        if (Number.isFinite(computed) && computed > 0) {
+          return <div className="text-right">{computed.toFixed(2)}</div>
+        }
       }
 
       return <div className="text-right text-muted-foreground">—</div>

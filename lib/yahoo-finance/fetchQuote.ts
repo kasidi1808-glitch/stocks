@@ -43,53 +43,67 @@ function createEmptyQuote(ticker: string): Quote {
   })
 }
 
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
 export function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
 
-  const symbol =
-    typeof response?.symbol === "string" ? response.symbol.trim() : response?.symbol
+  const regularMarketPrice = asFiniteNumber(response?.regularMarketPrice)
+  const trailingEps = asFiniteNumber(response?.trailingEps)
 
-  return applyCompanyNameFallbacks(
-    {
-      symbol: symbol ?? "",
-      shortName: response?.shortName ?? response?.symbol ?? "",
-      longName:
-        response?.longName ??
-        response?.displayName ??
-        response?.shortName ??
-        response?.symbol ??
-        null,
-      regularMarketPrice: response?.regularMarketPrice ?? null,
-      regularMarketChange: response?.regularMarketChange ?? null,
-      regularMarketChangePercent: response?.regularMarketChangePercent ?? null,
-      regularMarketDayLow: response?.regularMarketDayLow ?? null,
-      regularMarketDayHigh: response?.regularMarketDayHigh ?? null,
-      fiftyTwoWeekLow: response?.fiftyTwoWeekLow ?? null,
-      fiftyTwoWeekHigh: response?.fiftyTwoWeekHigh ?? null,
-      marketCap: response?.marketCap ?? null,
-      regularMarketVolume: response?.regularMarketVolume ?? null,
-      averageDailyVolume3Month: response?.averageDailyVolume3Month ?? null,
-      regularMarketOpen: response?.regularMarketOpen ?? null,
-      regularMarketPreviousClose: response?.regularMarketPreviousClose ?? null,
-      trailingEps: response?.trailingEps ?? null,
-      trailingPE: response?.trailingPE ?? null,
-      fullExchangeName: response?.fullExchangeName ?? null,
-      currency: response?.currency ?? null,
-      regularMarketTime:
-        regularMarketTime instanceof Date
-          ? regularMarketTime.getTime()
-          : regularMarketTime ?? null,
-      postMarketPrice: response?.postMarketPrice ?? null,
-      postMarketChange: response?.postMarketChange ?? null,
-      postMarketChangePercent: response?.postMarketChangePercent ?? null,
-      preMarketPrice: response?.preMarketPrice ?? null,
-      preMarketChange: response?.preMarketChange ?? null,
-      preMarketChangePercent: response?.preMarketChangePercent ?? null,
-      hasPrePostMarketData:
-        response?.postMarketPrice != null || response?.preMarketPrice != null,
-    },
-    response?.displayName
-  )
+  let trailingPE = asFiniteNumber(response?.trailingPE)
+
+  if (
+    (!trailingPE || trailingPE <= 0) &&
+    regularMarketPrice &&
+    trailingEps &&
+    trailingEps !== 0
+  ) {
+    const computedPe = regularMarketPrice / trailingEps
+
+    if (Number.isFinite(computedPe) && computedPe > 0) {
+      trailingPE = computedPe
+    }
+  }
+
+  return {
+    symbol: response?.symbol ?? "",
+    shortName: response?.shortName ?? response?.symbol ?? "",
+    regularMarketPrice,
+    regularMarketChange: response?.regularMarketChange ?? null,
+    regularMarketChangePercent: response?.regularMarketChangePercent ?? null,
+    regularMarketDayLow: response?.regularMarketDayLow ?? null,
+    regularMarketDayHigh: response?.regularMarketDayHigh ?? null,
+    fiftyTwoWeekLow: response?.fiftyTwoWeekLow ?? null,
+    fiftyTwoWeekHigh: response?.fiftyTwoWeekHigh ?? null,
+    marketCap: response?.marketCap ?? null,
+    regularMarketVolume: response?.regularMarketVolume ?? null,
+    averageDailyVolume3Month: response?.averageDailyVolume3Month ?? null,
+    regularMarketOpen: response?.regularMarketOpen ?? null,
+    regularMarketPreviousClose: response?.regularMarketPreviousClose ?? null,
+    trailingEps,
+    trailingPE,
+    fullExchangeName: response?.fullExchangeName ?? null,
+    currency: response?.currency ?? null,
+    regularMarketTime:
+      regularMarketTime instanceof Date
+        ? regularMarketTime.getTime()
+        : regularMarketTime ?? null,
+    postMarketPrice: response?.postMarketPrice ?? null,
+    postMarketChange: response?.postMarketChange ?? null,
+    postMarketChangePercent: response?.postMarketChangePercent ?? null,
+    preMarketPrice: response?.preMarketPrice ?? null,
+    preMarketChange: response?.preMarketChange ?? null,
+    preMarketChangePercent: response?.preMarketChangePercent ?? null,
+    hasPrePostMarketData:
+      response?.postMarketPrice != null || response?.preMarketPrice != null,
+  }
 }
 
 type QuoteApiResponse = {
