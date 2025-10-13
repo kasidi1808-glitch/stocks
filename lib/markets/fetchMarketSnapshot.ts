@@ -6,11 +6,45 @@ import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
 
 import type { MarketInstrument } from "./types"
 
+function normalizeString(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  return trimmed
+}
+
+function normalizeName(
+  value: string | null | undefined,
+  symbol: string
+): string | null {
+  const normalized = normalizeString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.toUpperCase() === symbol.toUpperCase()) {
+    return null
+  }
+
+  return normalized
+}
+
 function createPlaceholderQuote(instrument: MarketInstrument): Quote {
+  const symbol = normalizeString(instrument.symbol) ?? ""
+  const fallbackName = normalizeName(instrument.shortName, symbol) ?? symbol
+
   return {
-    symbol: instrument.symbol,
-    shortName: instrument.shortName,
-    longName: instrument.shortName ?? instrument.symbol,
+    symbol,
+    shortName: fallbackName,
+    longName: fallbackName,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -42,15 +76,19 @@ function applyInstrumentOverrides(
   quote: Quote,
   instrument: MarketInstrument
 ): Quote {
+  const requestSymbol = normalizeString(instrument.symbol) ?? ""
+  const quoteSymbol = normalizeString(quote.symbol) ?? requestSymbol
+  const shortNameFromQuote = normalizeName(quote.shortName ?? null, quoteSymbol)
+  const longNameFromQuote = normalizeName(quote.longName ?? null, quoteSymbol)
+  const instrumentName = normalizeName(instrument.shortName, quoteSymbol)
+  const fallbackSymbol = quoteSymbol || requestSymbol
+  const fallbackName = instrumentName ?? shortNameFromQuote ?? fallbackSymbol
+
   return {
     ...quote,
-    symbol: instrument.symbol,
-    shortName: instrument.shortName ?? quote.shortName ?? instrument.symbol,
-    longName:
-      quote.longName ??
-      instrument.shortName ??
-      quote.shortName ??
-      instrument.symbol,
+    symbol: quoteSymbol,
+    shortName: shortNameFromQuote ?? fallbackName,
+    longName: longNameFromQuote ?? fallbackName,
   }
 }
 

@@ -30,6 +30,34 @@ function toNumber(value: unknown): number | null {
   return null
 }
 
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  return trimmed
+}
+
+function normalizeName(value: unknown, symbol: string): string | null {
+  const normalized = normalizeString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.toUpperCase() === symbol.toUpperCase()) {
+    return null
+  }
+
+  return normalized
+}
+
 function calculatePe(price: number | null, eps: number | null): number | null {
   if (price === null || eps === null || eps <= 0) {
     return null
@@ -54,24 +82,14 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
   const rawSymbol =
-    typeof rawQuote?.symbol === "string" && rawQuote.symbol.trim() !== ""
-      ? rawQuote.symbol.trim()
-      : typeof rawQuote?.ticker === "string" && rawQuote.ticker.trim() !== ""
-        ? rawQuote.ticker.trim()
-        : ""
+    normalizeString(rawQuote?.symbol) ?? normalizeString(rawQuote?.ticker) ?? ""
   const symbol = rawSymbol
-  const shortName =
-    typeof rawQuote?.shortName === "string" && rawQuote.shortName.trim() !== ""
-      ? rawQuote.shortName.trim()
-      : symbol
-  const longNameCandidate =
-    typeof rawQuote?.longName === "string" && rawQuote.longName.trim() !== ""
-      ? rawQuote.longName.trim()
-      : typeof rawQuote?.displayName === "string" &&
-          rawQuote.displayName.trim() !== ""
-        ? rawQuote.displayName.trim()
-        : null
-  const longName = longNameCandidate ?? shortName ?? symbol
+  const shortNameCandidate = normalizeName(rawQuote?.shortName, symbol)
+  const displayNameCandidate =
+    normalizeName(rawQuote?.longName, symbol) ??
+    normalizeName(rawQuote?.displayName, symbol)
+  const shortName = shortNameCandidate ?? symbol
+  const longName = displayNameCandidate ?? shortName
 
   return {
     symbol,
@@ -119,19 +137,12 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
     toNumber(quote.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
-  const resolvedSymbolRaw =
-    typeof quote.symbol === "string" && quote.symbol.trim() !== ""
-      ? quote.symbol.trim()
-      : null
+  const resolvedSymbolRaw = normalizeString(quote.symbol)
   const resolvedSymbol = resolvedSymbolRaw ?? symbol
-  const shortName =
-    (typeof quote.shortName === "string" && quote.shortName.trim() !== ""
-      ? quote.shortName.trim()
-      : resolvedSymbol) ?? symbol
-  const longName =
-    typeof quote.longName === "string" && quote.longName.trim() !== ""
-      ? quote.longName.trim()
-      : shortName
+  const shortNameCandidate = normalizeName(quote.shortName, resolvedSymbol)
+  const longNameCandidate = normalizeName(quote.longName, resolvedSymbol)
+  const shortName = shortNameCandidate ?? resolvedSymbol
+  const longName = longNameCandidate ?? shortName
 
   return {
     symbol: resolvedSymbol,
