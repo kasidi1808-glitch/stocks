@@ -7,6 +7,7 @@ import type { Interval, Range } from "@/types/yahoo-finance"
 import { DEFAULT_RANGE, INTERVALS_FOR_RANGE, VALID_RANGES } from "./constants"
 import { CalculateRange } from "@/lib/utils"
 import yahooFinance from "yahoo-finance2"
+import { createOfflineChart } from "./offlineChart"
 
 export const validateRange = (range: string): Range =>
   VALID_RANGES.includes(range as Range) ? (range as Range) : DEFAULT_RANGE
@@ -34,9 +35,12 @@ export async function fetchChartData(
       queryOptions
     )
 
-    return chartData
+    if (Array.isArray(chartData.quotes) && chartData.quotes.length > 0) {
+      return chartData
+    }
   } catch (error) {
-    console.log("Failed to fetch chart data", error)
-    throw new Error("Failed to fetch chart data.")
+    console.warn("Failed to fetch chart data", error)
   }
+
+  return createOfflineChart(ticker, range, interval)
 }
