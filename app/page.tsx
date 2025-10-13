@@ -1,5 +1,11 @@
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+import AutoRefresh from "@/components/AutoRefresh"
+import MarketsChart from "@/components/chart/MarketsChart"
+import SectorPerformance from "@/components/stocks/SectorPerformance"
+import { columns } from "@/components/stocks/markets/columns"
 import { DataTable } from "@/components/stocks/markets/data-table"
-import yahooFinance from "yahoo-finance2"
 import {
   Card,
   CardContent,
@@ -7,18 +13,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  PRE_MARKET_INSTRUMENTS,
+  REGULAR_MARKET_INSTRUMENTS,
+  fetchMarketSnapshot,
+} from "@/lib/markets"
 import { DEFAULT_INTERVAL, DEFAULT_RANGE } from "@/lib/yahoo-finance/constants"
-import { Interval } from "@/types/yahoo-finance"
-import { Suspense } from "react"
-import MarketsChart from "@/components/chart/MarketsChart"
-import Link from "next/link"
-import { columns } from "@/components/stocks/markets/columns"
-import SectorPerformance from "@/components/stocks/SectorPerformance"
 import {
   validateInterval,
   validateRange,
 } from "@/lib/yahoo-finance/fetchChartData"
 import { fetchStockSearch } from "@/lib/yahoo-finance/fetchStockSearch"
+import type { Interval, Quote } from "@/types/yahoo-finance"
+import Link from "next/link"
+import { Suspense } from "react"
 
 function isMarketOpen() {
   const now = new Date()
@@ -49,31 +57,36 @@ function isMarketOpen() {
   }
 }
 
-const tickersFutures = [
-  { symbol: "ES=F", shortName: "S&P 500 Futures" },
-  { symbol: "NQ=F", shortName: "NASDAQ Futures" },
-  { symbol: "YM=F", shortName: "Dow Jones Futures" },
-  { symbol: "RTY=F", shortName: "Russell 2000 Futures" },
-  { symbol: "CL=F", shortName: "Crude Oil" },
-  { symbol: "GC=F", shortName: "Gold" },
-  { symbol: "SI=F", shortName: "Silver" },
-  { symbol: "EURUSD=X", shortName: "EUR/USD" },
-  { symbol: "^TNX", shortName: "10 Year Bond" },
-  { symbol: "BTC-USD", shortName: "Bitcoin" },
-]
+function formatNewsTimestamp(
+  publishTime?: Date | string | number | null
+): string | null {
+  if (!publishTime) {
+    return null
+  }
 
-const tickerAfterOpen = [
-  { symbol: "^GSPC", shortName: "S&P 500" },
-  { symbol: "^IXIC", shortName: "NASDAQ" },
-  { symbol: "^DJI", shortName: "Dow Jones" },
-  { symbol: "^RUT", shortName: "Russell 2000" },
-  { symbol: "CL=F", shortName: "Crude Oil" },
-  { symbol: "GC=F", shortName: "Gold" },
-  { symbol: "SI=F", shortName: "Silver" },
-  { symbol: "EURUSD=X", shortName: "EUR/USD" },
-  { symbol: "^TNX", shortName: "10 Year Bond" },
-  { symbol: "BTC-USD", shortName: "Bitcoin" },
-]
+  const publishedDate =
+    publishTime instanceof Date ? publishTime : new Date(publishTime)
+
+  if (Number.isNaN(publishedDate.getTime())) {
+    return null
+  }
+
+  const diffMs = publishedDate.getTime() - Date.now()
+  const diffMinutes = Math.round(diffMs / (1000 * 60))
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+
+  if (Math.abs(diffMinutes) < 60) {
+    return rtf.format(diffMinutes, "minute")
+  }
+
+  const diffHours = Math.round(diffMinutes / 60)
+  if (Math.abs(diffHours) < 24) {
+    return rtf.format(diffHours, "hour")
+  }
+
+  const diffDays = Math.round(diffHours / 24)
+  return rtf.format(diffDays, "day")
+}
 
 function getMarketSentiment(changePercentage: number | undefined) {
   if (!changePercentage) {
@@ -97,28 +110,32 @@ export default async function Home({
     interval?: string
   }
 }) {
-  const tickers = isMarketOpen() ? tickerAfterOpen : tickersFutures
+  const instruments = isMarketOpen()
+    ? REGULAR_MARKET_INSTRUMENTS
+    : PRE_MARKET_INSTRUMENTS
 
-  const ticker = searchParams?.ticker || tickers[0].symbol
+  const fallbackInstrument = instruments[0]
+  const requestedTicker = searchParams?.ticker
+  const selectedInstrument =
+    instruments.find((instrument) => instrument.symbol === requestedTicker) ??
+    fallbackInstrument
+  const ticker = selectedInstrument.symbol
+  const newsTicker = selectedInstrument.newsSymbol ?? selectedInstrument.symbol
   const range = validateRange(searchParams?.range || DEFAULT_RANGE)
   const interval = validateInterval(
     range,
     (searchParams?.interval as Interval) || DEFAULT_INTERVAL
   )
-  const news = await fetchStockSearch("^DJI", 1)
-
-  const promises = tickers.map(({ symbol }) =>
-    yahooFinance.quoteCombine(symbol)
+  const news = await fetchStockSearch(newsTicker, 3)
+  const firstNews = news.news?.[0]
+  const firstNewsTimestamp = formatNewsTimestamp(
+    firstNews?.providerPublishTime ?? null
   )
-  const results = await Promise.all(promises)
 
-  const resultsWithTitles = results.map((result, index) => ({
-    ...result,
-    shortName: tickers[index].shortName,
-  }))
+  const marketQuotes: Quote[] = await fetchMarketSnapshot(instruments)
 
   const marketSentiment = getMarketSentiment(
-    resultsWithTitles[0].regularMarketChangePercent
+    marketQuotes[0]?.regularMarketChangePercent ?? undefined
   )
 
   const sentimentColor =
@@ -137,6 +154,7 @@ export default async function Home({
 
   return (
     <div className="flex flex-col gap-4">
+      <AutoRefresh intervalMs={45_000} />
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="w-full lg:w-1/2">
           <Card className="relative flex h-full min-h-[15rem] flex-col justify-between overflow-hidden">
@@ -146,18 +164,27 @@ export default async function Home({
                 <strong className={sentimentColor}>{marketSentiment}</strong>
               </CardTitle>
             </CardHeader>
-            {news.news[0] && news.news[0].title && (
+            {firstNews && firstNews.title && (
               <CardFooter className="flex-col items-start">
                 <p className="mb-2 text-sm font-semibold text-neutral-500 dark:text-neutral-500">
-                  What you need to know today
+                  Latest on {selectedInstrument.shortName}
                 </p>
                 <Link
                   prefetch={false}
-                  href={news.news[0].link}
+                  href={firstNews.link}
                   className="text-lg font-extrabold"
                 >
-                  {news.news[0].title}
+                  {firstNews.title}
                 </Link>
+                {(firstNews.publisher || firstNewsTimestamp) && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {firstNews.publisher && <span>{firstNews.publisher}</span>}
+                    {firstNews.publisher && firstNewsTimestamp && (
+                      <span aria-hidden="true"> • </span>
+                    )}
+                    {firstNewsTimestamp}
+                  </p>
+                )}
               </CardFooter>
             )}
             <div
@@ -183,12 +210,17 @@ export default async function Home({
         <Card className="flex flex-col gap-4 p-6 lg:flex-row">
           <div className="w-full lg:w-1/2">
             <Suspense fallback={<div>Loading...</div>}>
-              <DataTable columns={columns} data={resultsWithTitles} />
+              <DataTable columns={columns} data={marketQuotes} />
             </Suspense>
           </div>
           <div className="w-full lg:w-1/2">
             <Suspense fallback={<div>Loading...</div>}>
-              <MarketsChart ticker={ticker} range={range} interval={interval} />
+              <MarketsChart
+                ticker={ticker}
+                range={range}
+                interval={interval}
+                displayName={selectedInstrument.shortName}
+              />
             </Suspense>
           </div>
         </Card>
