@@ -67,6 +67,14 @@ function asFiniteNumber(value: unknown): number | null {
   return null
 }
 
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
 export function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
 
