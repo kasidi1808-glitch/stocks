@@ -53,10 +53,30 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     toNumber(rawQuote?.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
+  const rawSymbol =
+    typeof rawQuote?.symbol === "string" && rawQuote.symbol.trim() !== ""
+      ? rawQuote.symbol.trim()
+      : typeof rawQuote?.ticker === "string" && rawQuote.ticker.trim() !== ""
+        ? rawQuote.ticker.trim()
+        : ""
+  const symbol = rawSymbol
+  const shortName =
+    typeof rawQuote?.shortName === "string" && rawQuote.shortName.trim() !== ""
+      ? rawQuote.shortName.trim()
+      : symbol
+  const longNameCandidate =
+    typeof rawQuote?.longName === "string" && rawQuote.longName.trim() !== ""
+      ? rawQuote.longName.trim()
+      : typeof rawQuote?.displayName === "string" &&
+          rawQuote.displayName.trim() !== ""
+        ? rawQuote.displayName.trim()
+        : null
+  const longName = longNameCandidate ?? shortName ?? symbol
+
   return {
-    symbol: typeof rawQuote?.symbol === "string" ? rawQuote.symbol : "",
-    shortName:
-      rawQuote?.shortName ?? rawQuote?.longName ?? rawQuote?.symbol ?? "",
+    symbol,
+    shortName,
+    longName,
     regularMarketPrice,
     regularMarketChange: toNumber(rawQuote?.regularMarketChange),
     regularMarketChangePercent: toNumber(
@@ -76,6 +96,7 @@ function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
   return {
     symbol,
     shortName: symbol,
+    longName: symbol,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -98,9 +119,24 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
     toNumber(quote.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
+  const resolvedSymbolRaw =
+    typeof quote.symbol === "string" && quote.symbol.trim() !== ""
+      ? quote.symbol.trim()
+      : null
+  const resolvedSymbol = resolvedSymbolRaw ?? symbol
+  const shortName =
+    (typeof quote.shortName === "string" && quote.shortName.trim() !== ""
+      ? quote.shortName.trim()
+      : resolvedSymbol) ?? symbol
+  const longName =
+    typeof quote.longName === "string" && quote.longName.trim() !== ""
+      ? quote.longName.trim()
+      : shortName
+
   return {
-    symbol: quote.symbol ?? symbol,
-    shortName: quote.shortName ?? quote.symbol ?? symbol,
+    symbol: resolvedSymbol,
+    shortName,
+    longName,
     regularMarketPrice,
     regularMarketChange: toNumber(quote.regularMarketChange),
     regularMarketChangePercent: toNumber(quote.regularMarketChangePercent),

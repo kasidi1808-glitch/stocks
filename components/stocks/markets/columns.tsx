@@ -1,18 +1,36 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import type { Quote } from "@/types/yahoo-finance"
-import { cn } from "@/lib/utils"
 import Link from "next/link"
+
+import { cn } from "@/lib/utils"
+import type { Quote } from "@/types/yahoo-finance"
+
+const decimalFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const compactNumberFormatter = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 2,
+})
+
+const peFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+})
 
 export const columns: ColumnDef<Quote>[] = [
   {
-    accessorKey: "shortName",
-    header: "Title",
-    cell: (props) => {
-      const { row } = props
-      const title = row.getValue("shortName") as string
-      const symbol = row.original.symbol
+    accessorKey: "symbol",
+    header: "Symbol",
+    cell: ({ row }) => {
+      const symbol = row.getValue("symbol") as string | null
+
+      if (!symbol) {
+        return <span className="text-muted-foreground">—</span>
+      }
 
       return (
         <Link
@@ -23,20 +41,51 @@ export const columns: ColumnDef<Quote>[] = [
           }}
           className="font-medium"
         >
-          {title}
+          {symbol}
         </Link>
       )
     },
   },
   {
+    accessorKey: "longName",
+    header: "Company",
+    cell: ({ row }) => {
+      const longName = row.getValue("longName") as string | null
+      const fallbackName =
+        row.original.shortName ?? row.original.symbol ?? undefined
+
+      if (longName) {
+        return <span>{longName}</span>
+      }
+
+      if (fallbackName) {
+        return <span>{fallbackName}</span>
+      }
+
+      return <span className="text-muted-foreground">—</span>
+    },
+  },
+  {
+    accessorKey: "trailingPE",
+    header: () => <div className="text-right">P/E</div>,
+    cell: ({ row }) => {
+      const trailingPE = row.getValue("trailingPE") as number | null
+
+      if (typeof trailingPE === "number") {
+        return <div className="text-right">{peFormatter.format(trailingPE)}</div>
+      }
+
+      return <div className="text-right text-muted-foreground">—</div>
+    },
+  },
+  {
     accessorKey: "regularMarketPrice",
     header: () => <div className="text-right">Price</div>,
-    cell: (props) => {
-      const { row } = props
+    cell: ({ row }) => {
       const price = row.getValue("regularMarketPrice") as number | null
 
       if (typeof price === "number") {
-        return <div className="text-right">{price.toFixed(2)}</div>
+        return <div className="text-right">{decimalFormatter.format(price)}</div>
       }
 
       return <div className="text-right text-muted-foreground">—</div>
@@ -44,12 +93,13 @@ export const columns: ColumnDef<Quote>[] = [
   },
   {
     accessorKey: "regularMarketChange",
-    header: () => <div className="text-right">$ Change</div>,
-    cell: (props) => {
-      const { row } = props
+    header: () => <div className="text-right">Change</div>,
+    cell: ({ row }) => {
       const change = row.getValue("regularMarketChange") as number | null
 
       if (typeof change === "number") {
+        const formattedChange = decimalFormatter.format(Math.abs(change))
+
         return (
           <div
             className={cn(
@@ -57,8 +107,8 @@ export const columns: ColumnDef<Quote>[] = [
               change < 0 ? "text-red-500" : "text-green-500"
             )}
           >
-            {change > 0 ? "+" : ""}
-            {change.toFixed(2)}
+            {change > 0 ? "+" : change < 0 ? "-" : ""}
+            {formattedChange}
           </div>
         )
       }
@@ -69,8 +119,7 @@ export const columns: ColumnDef<Quote>[] = [
   {
     accessorKey: "regularMarketChangePercent",
     header: () => <div className="text-right">% Change</div>,
-    cell: (props) => {
-      const { row } = props
+    cell: ({ row }) => {
       const changePercent = row.getValue(
         "regularMarketChangePercent"
       ) as number | null
@@ -80,13 +129,13 @@ export const columns: ColumnDef<Quote>[] = [
           <div className="flex justify-end">
             <div
               className={cn(
-                "w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right",
+                "w-[4.5rem] min-w-fit rounded-md px-2 py-0.5 text-right",
                 changePercent < 0
                   ? "bg-red-300 text-red-800 dark:bg-red-950 dark:text-red-500"
                   : "bg-green-300 text-green-800 dark:bg-green-950 dark:text-green-400"
               )}
             >
-              {changePercent.toFixed(2)}%
+              {decimalFormatter.format(changePercent)}%
             </div>
           </div>
         )
@@ -94,11 +143,64 @@ export const columns: ColumnDef<Quote>[] = [
 
       return (
         <div className="flex justify-end">
-          <div className="w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right text-muted-foreground">
+          <div className="w-[4.5rem] min-w-fit rounded-md px-2 py-0.5 text-right text-muted-foreground">
             —
           </div>
         </div>
       )
+    },
+  },
+  {
+    accessorKey: "regularMarketVolume",
+    header: () => <div className="text-right">Volume</div>,
+    cell: ({ row }) => {
+      const volume = row.getValue("regularMarketVolume") as number | null
+
+      if (typeof volume === "number") {
+        return (
+          <div className="text-right">
+            {compactNumberFormatter.format(volume)}
+          </div>
+        )
+      }
+
+      return <div className="text-right text-muted-foreground">—</div>
+    },
+  },
+  {
+    accessorKey: "averageDailyVolume3Month",
+    header: () => <div className="text-right">Avg Volume</div>,
+    cell: ({ row }) => {
+      const averageVolume = row.getValue(
+        "averageDailyVolume3Month"
+      ) as number | null
+
+      if (typeof averageVolume === "number") {
+        return (
+          <div className="text-right">
+            {compactNumberFormatter.format(averageVolume)}
+          </div>
+        )
+      }
+
+      return <div className="text-right text-muted-foreground">—</div>
+    },
+  },
+  {
+    accessorKey: "marketCap",
+    header: () => <div className="text-right">Market Cap</div>,
+    cell: ({ row }) => {
+      const marketCap = row.getValue("marketCap") as number | null
+
+      if (typeof marketCap === "number") {
+        return (
+          <div className="text-right">
+            {compactNumberFormatter.format(marketCap)}
+          </div>
+        )
+      }
+
+      return <div className="text-right text-muted-foreground">—</div>
     },
   },
 ]
