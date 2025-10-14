@@ -2,6 +2,8 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
 
+import { getOfflineQuote } from "@/data/offlineQuotes"
+
 import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
 import { loadQuoteSummary } from "../yahoo-finance/fetchQuoteSummary"
 import { hydratePeFromOfflineData } from "./quoteEnrichment"
@@ -40,13 +42,14 @@ function normalizeName(
 }
 
 function createPlaceholderQuote(instrument: MarketInstrument): Quote {
-  const symbol = normalizeString(instrument.symbol) ?? ""
-  const fallbackName = normalizeName(instrument.shortName, symbol) ?? symbol
+  const offlineQuote = getOfflineQuote(instrument.symbol)
+  if (offlineQuote) {
+    return applyInstrumentOverrides(offlineQuote, instrument)
+  }
 
-  return applyCompanyNameFallbacks({
-    symbol,
-    shortName: fallbackName,
-    longName: fallbackName,
+  return {
+    symbol: instrument.symbol,
+    shortName: instrument.shortName,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -300,6 +303,30 @@ function hydratePeFromOfflineData(symbol: string, quote: Quote): Quote {
   }
 
   return merged
+}
+
+async function loadSummariesForSymbols(
+  symbols: string[]
+): Promise<Map<string, QuoteSummary | null>> {
+  if (symbols.length === 0) {
+    return new Map()
+  }
+
+  const uniqueSymbols = Array.from(new Set(symbols))
+
+  const entries = await Promise.all(
+    uniqueSymbols.map(async (symbol): Promise<[string, QuoteSummary | null]> => {
+      try {
+        const summary = await loadQuoteSummary(symbol)
+        return [symbol, summary]
+      } catch (error) {
+        console.warn(`Failed to load quote summary for ${symbol}`, error)
+        return [symbol, null]
+      }
+    })
+  )
+
+  return new Map(entries)
 }
 
 async function loadSummariesForSymbols(
