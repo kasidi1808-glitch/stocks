@@ -33,29 +33,6 @@ function formatPrice(value: unknown): string {
   return numeric.toFixed(fractionDigits)
 }
 
-function formatPe(price: unknown, eps: unknown, directPe: unknown): string {
-  const trailingPe = toNumber(directPe)
-
-  if (trailingPe !== null && trailingPe > 0) {
-    return trailingPe.toFixed(2)
-  }
-
-  const priceNumber = toNumber(price)
-  const epsNumber = toNumber(eps)
-
-  if (
-    priceNumber === null ||
-    epsNumber === null ||
-    epsNumber === 0 ||
-    !Number.isFinite(priceNumber / epsNumber) ||
-    priceNumber / epsNumber <= 0
-  ) {
-    return NA_VALUE
-  }
-
-  return (priceNumber / epsNumber).toFixed(2)
-}
-
 function formatLargeNumber(value: unknown): string {
   const numeric = toNumber(value)
 
@@ -107,28 +84,6 @@ export const columns: ColumnDef<Quote>[] = [
             <span className="text-xs text-muted-foreground">{symbol}</span>
           )}
         </Link>
-      )
-    },
-  },
-  {
-    accessorKey: "trailingPE",
-    header: () => <div className="text-right">P/E</div>,
-    cell: ({ row }) => {
-      const display = formatPe(
-        row.original.regularMarketPrice,
-        row.original.trailingEps,
-        row.original.trailingPE
-      )
-
-      return (
-        <div
-          className={cn(
-            "text-right",
-            display === NA_VALUE && "text-muted-foreground"
-          )}
-        >
-          {display}
-        </div>
       )
     },
   },
@@ -205,24 +160,6 @@ export const columns: ColumnDef<Quote>[] = [
     header: () => <div className="text-right">Avg Volume</div>,
     cell: ({ row }) => {
       const display = formatLargeNumber(row.original.averageDailyVolume3Month)
-
-      return (
-        <div
-          className={cn(
-            "text-right",
-            display === NA_VALUE && "text-muted-foreground"
-          )}
-        >
-          {display}
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: "marketCap",
-    header: () => <div className="text-right">Market Cap</div>,
-    cell: ({ row }) => {
-      const display = formatLargeNumber(row.original.marketCap)
 
       return (
         <div
