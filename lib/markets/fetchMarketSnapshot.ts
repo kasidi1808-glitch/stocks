@@ -6,7 +6,7 @@ import { getOfflineQuote } from "@/data/offlineQuotes"
 
 import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
 import { loadQuoteSummary } from "../yahoo-finance/fetchQuoteSummary"
-import { hydratePeFromOfflineData } from "./quoteEnrichment"
+import { hydratePeFromOfflineData, mergeQuoteWithSummary } from "./quoteEnrichment"
 
 import type { MarketInstrument } from "./types"
 
@@ -404,6 +404,30 @@ async function loadSummariesForSymbols(
   return new Map(entries)
 }
 
+async function loadSummariesForSymbols(
+  symbols: string[]
+): Promise<Map<string, QuoteSummary | null>> {
+  if (symbols.length === 0) {
+    return new Map()
+  }
+
+  const uniqueSymbols = Array.from(new Set(symbols))
+
+  const entries = await Promise.all(
+    uniqueSymbols.map(async (symbol): Promise<[string, QuoteSummary | null]> => {
+      try {
+        const summary = await loadQuoteSummary(symbol)
+        return [symbol, summary]
+      } catch (error) {
+        console.warn(`Failed to load quote summary for ${symbol}`, error)
+        return [symbol, null]
+      }
+    })
+  )
+
+  return new Map(entries)
+}
+
 export async function fetchMarketSnapshot(
   instruments: MarketInstrument[]
 ): Promise<Quote[]> {
@@ -423,10 +447,8 @@ export async function fetchMarketSnapshot(
       ? applyInstrumentOverrides(quote, instrument)
       : createPlaceholderQuote(instrument)
 
-    return hydratePeFromOfflineData(
-      instrument.symbol,
-      baseQuote,
-      summary
-    )
+    const summaryHydrated = mergeQuoteWithSummary(baseQuote, summary)
+
+    return hydratePeFromOfflineData(instrument.symbol, summaryHydrated)
   })
 }

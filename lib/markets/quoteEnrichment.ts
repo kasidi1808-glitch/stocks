@@ -26,19 +26,11 @@ export function mergeQuoteWithSummary(
   return merged
 }
 
-export function hydratePeFromOfflineData(
-  symbol: string,
-  quote: Quote,
-  knownSummary?: QuoteSummary | null
-): Quote {
+export function hydratePeFromOfflineData(symbol: string, quote: Quote): Quote {
   let hydrated = quote
 
   const hasValidPe = () => isFiniteNumber(hydrated.trailingPE) && hydrated.trailingPE > 0
   const hasValidEps = () => isFiniteNumber(hydrated.trailingEps) && hydrated.trailingEps !== 0
-
-  if (!hasValidPe() || !hasValidEps()) {
-    hydrated = mergeQuoteWithSummary(hydrated, knownSummary)
-  }
 
   if (hasValidPe() && hasValidEps()) {
     return hydrated
@@ -47,19 +39,20 @@ export function hydratePeFromOfflineData(
   const offlineSummary = getOfflineQuoteSummary(symbol)
   if (offlineSummary) {
     hydrated = mergeQuoteWithSummary(hydrated, offlineSummary)
-  }
 
-  if (hasValidPe() && hasValidEps()) {
-    return hydrated
+    if (hasValidPe() && hasValidEps()) {
+      return hydrated
+    }
   }
 
   if (!hasValidEps()) {
     return hydrated
   }
 
+  const offlineQuote = getOfflineQuote(symbol)
   const priceSource = isFiniteNumber(hydrated.regularMarketPrice)
     ? hydrated.regularMarketPrice
-    : asFiniteNumber(getOfflineQuote(symbol)?.regularMarketPrice)
+    : asFiniteNumber(offlineQuote?.regularMarketPrice)
 
   if (!isFiniteNumber(priceSource) || priceSource <= 0) {
     return hydrated
