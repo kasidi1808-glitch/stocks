@@ -3,6 +3,46 @@ import { getOfflineQuote } from "@/data/offlineQuotes"
 import { asFiniteNumber, isFiniteNumber } from "@/lib/utils/numbers"
 import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
 
+function assignNumberIfMissing(
+  target: Quote,
+  key: keyof Quote,
+  value: unknown
+) {
+  const numericValue = asFiniteNumber(value)
+
+  if (!isFiniteNumber(numericValue)) {
+    return
+  }
+
+  const current = target[key] as unknown
+
+  if (!isFiniteNumber(current)) {
+    ;(target as Record<string, unknown>)[key as string] = numericValue
+  }
+}
+
+function assignStringIfMissing(
+  target: Quote,
+  key: keyof Quote,
+  value: unknown
+) {
+  if (typeof value !== "string") {
+    return
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return
+  }
+
+  const current = target[key]
+
+  if (typeof current !== "string" || !current.trim()) {
+    ;(target as Record<string, unknown>)[key as string] = trimmed
+  }
+}
+
 export function mergeQuoteWithSummary(
   quote: Quote,
   summary?: QuoteSummary | null
@@ -12,6 +52,47 @@ export function mergeQuoteWithSummary(
   }
 
   const merged: Quote = { ...quote }
+
+  assignNumberIfMissing(
+    merged,
+    "regularMarketOpen",
+    summary.summaryDetail?.open
+  )
+  assignNumberIfMissing(
+    merged,
+    "regularMarketDayHigh",
+    summary.summaryDetail?.dayHigh
+  )
+  assignNumberIfMissing(
+    merged,
+    "regularMarketDayLow",
+    summary.summaryDetail?.dayLow
+  )
+  assignNumberIfMissing(
+    merged,
+    "regularMarketVolume",
+    summary.summaryDetail?.volume
+  )
+  assignNumberIfMissing(
+    merged,
+    "averageDailyVolume3Month",
+    summary.summaryDetail?.averageVolume
+  )
+  assignNumberIfMissing(
+    merged,
+    "fiftyTwoWeekHigh",
+    summary.summaryDetail?.fiftyTwoWeekHigh
+  )
+  assignNumberIfMissing(
+    merged,
+    "fiftyTwoWeekLow",
+    summary.summaryDetail?.fiftyTwoWeekLow
+  )
+  assignNumberIfMissing(
+    merged,
+    "marketCap",
+    summary.summaryDetail?.marketCap
+  )
 
   const summaryPe = asFiniteNumber(summary.summaryDetail?.trailingPE)
   if (isFiniteNumber(summaryPe) && summaryPe > 0) {
@@ -26,35 +107,100 @@ export function mergeQuoteWithSummary(
   return merged
 }
 
-export function hydratePeFromOfflineData(symbol: string, quote: Quote): Quote {
-  let hydrated = quote
+export function hydrateQuoteFromOfflineData(symbol: string, quote: Quote): Quote {
+  let hydrated: Quote = { ...quote }
 
-  const hasValidPe = () => isFiniteNumber(hydrated.trailingPE) && hydrated.trailingPE > 0
-  const hasValidEps = () => isFiniteNumber(hydrated.trailingEps) && hydrated.trailingEps !== 0
+  const offlineQuote = getOfflineQuote(symbol)
 
-  if (hasValidPe() && hasValidEps()) {
-    return hydrated
+  if (offlineQuote) {
+    assignStringIfMissing(hydrated, "shortName", offlineQuote.shortName)
+    assignStringIfMissing(hydrated, "fullExchangeName", offlineQuote.fullExchangeName)
+    assignStringIfMissing(hydrated, "currency", offlineQuote.currency)
+
+    assignNumberIfMissing(
+      hydrated,
+      "regularMarketPrice",
+      offlineQuote.regularMarketPrice
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "regularMarketChange",
+      offlineQuote.regularMarketChange
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "regularMarketChangePercent",
+      offlineQuote.regularMarketChangePercent
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "regularMarketDayHigh",
+      offlineQuote.regularMarketDayHigh
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "regularMarketDayLow",
+      offlineQuote.regularMarketDayLow
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "regularMarketOpen",
+      offlineQuote.regularMarketOpen
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "regularMarketPreviousClose",
+      offlineQuote.regularMarketPreviousClose
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "regularMarketVolume",
+      offlineQuote.regularMarketVolume
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "averageDailyVolume3Month",
+      offlineQuote.averageDailyVolume3Month
+    )
+    assignNumberIfMissing(hydrated, "marketCap", offlineQuote.marketCap)
+    assignNumberIfMissing(
+      hydrated,
+      "fiftyTwoWeekHigh",
+      offlineQuote.fiftyTwoWeekHigh
+    )
+    assignNumberIfMissing(
+      hydrated,
+      "fiftyTwoWeekLow",
+      offlineQuote.fiftyTwoWeekLow
+    )
   }
 
   const offlineSummary = getOfflineQuoteSummary(symbol)
   if (offlineSummary) {
     hydrated = mergeQuoteWithSummary(hydrated, offlineSummary)
-
-    if (hasValidPe() && hasValidEps()) {
-      return hydrated
-    }
   }
 
-  if (!hasValidEps()) {
+  const hasValidPe = () =>
+    isFiniteNumber(hydrated.trailingPE) && (hydrated.trailingPE as number) > 0
+  const hasValidEps = () =>
+    isFiniteNumber(hydrated.trailingEps) && (hydrated.trailingEps as number) !== 0
+
+  if (!hasValidEps() && offlineQuote) {
+    assignNumberIfMissing(hydrated, "trailingEps", offlineQuote.trailingEps)
+  }
+
+  if (!hasValidPe() && offlineQuote) {
+    assignNumberIfMissing(hydrated, "trailingPE", offlineQuote.trailingPE)
+  }
+
+  if (hasValidPe() && hasValidEps()) {
     return hydrated
   }
 
-  const offlineQuote = getOfflineQuote(symbol)
-  const priceSource = isFiniteNumber(hydrated.regularMarketPrice)
-    ? hydrated.regularMarketPrice
-    : asFiniteNumber(offlineQuote?.regularMarketPrice)
+  const priceSource = asFiniteNumber(hydrated.regularMarketPrice)
+    ?? asFiniteNumber(offlineQuote?.regularMarketPrice)
 
-  if (!isFiniteNumber(priceSource) || priceSource <= 0) {
+  if (!isFiniteNumber(priceSource) || priceSource <= 0 || !hasValidEps()) {
     return hydrated
   }
 

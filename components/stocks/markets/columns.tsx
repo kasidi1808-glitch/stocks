@@ -3,8 +3,81 @@
 import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
+const NA_VALUE = "N/A"
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value)
+
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
+function formatPrice(value: unknown): string {
+  const numeric = toNumber(value)
+
+  if (numeric === null) {
+    return NA_VALUE
+  }
+
+  const fractionDigits = Math.abs(numeric) >= 1 ? 2 : 4
+
+  return numeric.toFixed(fractionDigits)
+}
+
+function formatPe(price: unknown, eps: unknown, directPe: unknown): string {
+  const trailingPe = toNumber(directPe)
+
+  if (trailingPe !== null && trailingPe > 0) {
+    return trailingPe.toFixed(2)
+  }
+
+  const priceNumber = toNumber(price)
+  const epsNumber = toNumber(eps)
+
+  if (
+    priceNumber === null ||
+    epsNumber === null ||
+    epsNumber === 0 ||
+    !Number.isFinite(priceNumber / epsNumber) ||
+    priceNumber / epsNumber <= 0
+  ) {
+    return NA_VALUE
+  }
+
+  return (priceNumber / epsNumber).toFixed(2)
+}
+
+function formatLargeNumber(value: unknown): string {
+  const numeric = toNumber(value)
+
+  if (numeric === null) {
+    return NA_VALUE
+  }
+
+  const absValue = Math.abs(numeric)
+
+  if (absValue >= 1_000_000_000_000) {
+    return `${(numeric / 1_000_000_000_000).toFixed(2)}T`
+  }
+
+  if (absValue >= 1_000_000_000) {
+    return `${(numeric / 1_000_000_000).toFixed(2)}B`
+  }
+
+  if (absValue >= 1_000_000) {
+    return `${(numeric / 1_000_000).toFixed(2)}M`
+  }
+
+  return numeric.toLocaleString()
 }
 
 export const columns: ColumnDef<Quote>[] = [
@@ -34,8 +107,12 @@ export const columns: ColumnDef<Quote>[] = [
     header: "Company",
     cell: (props) => {
       const { row } = props
-      const title = row.getValue("shortName") as string
       const symbol = row.original.symbol
+      const name =
+        (typeof row.original.shortName === "string" &&
+        row.original.shortName.trim() !== ""
+          ? row.original.shortName
+          : symbol) ?? symbol
 
       return (
         <Link
@@ -44,9 +121,12 @@ export const columns: ColumnDef<Quote>[] = [
             pathname: "/",
             query: { ticker: symbol },
           }}
-          className="font-medium"
+          className="flex flex-col font-medium"
         >
-          {symbol}
+          <span>{name}</span>
+          {symbol && (
+            <span className="text-xs text-muted-foreground">{symbol}</span>
+          )}
         </Link>
       )
     },
@@ -54,148 +134,54 @@ export const columns: ColumnDef<Quote>[] = [
   {
     accessorKey: "trailingPE",
     header: () => <div className="text-right">P/E</div>,
-    cell: (props) => {
-      const { row } = props
+    cell: ({ row }) => {
+      const display = formatPe(
+        row.original.regularMarketPrice,
+        row.original.trailingEps,
+        row.original.trailingPE
+      )
 
-      const trailingPe = row.original.trailingPE
-      if (isFiniteNumber(trailingPe) && trailingPe > 0) {
-        return <div className="text-right">{trailingPe.toFixed(2)}</div>
-      }
-
-      const price = row.original.regularMarketPrice
-      const trailingEps = row.original.trailingEps
-
-      if (
-        isFiniteNumber(price) &&
-        isFiniteNumber(trailingEps) &&
-        trailingEps !== 0
-      ) {
-        const computed = price / trailingEps
-
-        if (Number.isFinite(computed) && computed > 0) {
-          return <div className="text-right">{computed.toFixed(2)}</div>
-        }
-      }
-
-      return <div className="text-right text-muted-foreground">—</div>
-    },
-  },
-  {
-    accessorKey: "regularMarketPrice",
-    header: () => <div className="text-right">Price</div>,
-    cell: (props) => {
-      const { row } = props
-
-      const trailingPe = row.original.trailingPE
-      if (isFiniteNumber(trailingPe) && trailingPe > 0) {
-        return <div className="text-right">{trailingPe.toFixed(2)}</div>
-      }
-
-      const price = row.original.regularMarketPrice
-      const trailingEps = row.original.trailingEps
-
-      if (
-        isFiniteNumber(price) &&
-        isFiniteNumber(trailingEps) &&
-        trailingEps !== 0
-      ) {
-        const computed = price / trailingEps
-
-        if (Number.isFinite(computed) && computed > 0) {
-          return <div className="text-right">{computed.toFixed(2)}</div>
-        }
-      }
-
-      return <div className="text-right text-muted-foreground">—</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            display === NA_VALUE && "text-muted-foreground"
+          )}
+        >
+          {display}
+        </div>
+      )
     },
   },
   {
     accessorKey: "regularMarketPrice",
     header: () => <div className="text-right">Price</div>,
     cell: ({ row }) => {
-      const price = row.getValue("regularMarketPrice") as number | null
+      const display = formatPrice(row.original.regularMarketPrice)
 
-      if (typeof price === "number") {
-        return <div className="text-right">{decimalFormatter.format(price)}</div>
-      }
-
-      return <div className="text-right text-muted-foreground">—</div>
-    },
-  },
-  {
-    accessorKey: "trailingPE",
-    header: () => <div className="text-right">P/E</div>,
-    cell: (props) => {
-      const { row } = props
-
-      const trailingPe = row.original.trailingPE
-      if (isFiniteNumber(trailingPe) && trailingPe > 0) {
-        return <div className="text-right">{trailingPe.toFixed(2)}</div>
-      }
-
-      const price = row.original.regularMarketPrice
-      const trailingEps = row.original.trailingEps
-
-      if (
-        isFiniteNumber(price) &&
-        isFiniteNumber(trailingEps) &&
-        trailingEps !== 0
-      ) {
-        const computed = price / trailingEps
-
-        if (Number.isFinite(computed) && computed > 0) {
-          return <div className="text-right">{computed.toFixed(2)}</div>
-        }
-      }
-
-      return <div className="text-right text-muted-foreground">—</div>
-    },
-  },
-  {
-    accessorKey: "regularMarketChange",
-    header: () => <div className="text-right">Change</div>,
-    cell: ({ row }) => {
-      const change = row.getValue("regularMarketChange") as number | null
-
-      if (typeof change === "number") {
-        const formattedChange = decimalFormatter.format(Math.abs(change))
-
-        return (
-          <div
-            className={cn(
-              "text-right",
-              change < 0 ? "text-red-500" : "text-green-500"
-            )}
-          >
-            {change > 0 ? "+" : change < 0 ? "-" : ""}
-            {formattedChange}
-          </div>
-        )
-      }
-
-      return <div className="text-right text-muted-foreground">—</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            display === NA_VALUE && "text-muted-foreground"
+          )}
+        >
+          {display}
+        </div>
+      )
     },
   },
   {
     accessorKey: "regularMarketChangePercent",
     header: () => <div className="text-right">% Change</div>,
     cell: ({ row }) => {
-      const changePercent = row.getValue(
-        "regularMarketChangePercent"
-      ) as number | null
+      const changePercent = toNumber(row.original.regularMarketChangePercent)
 
-      if (typeof changePercent === "number") {
+      if (changePercent === null) {
         return (
           <div className="flex justify-end">
-            <div
-              className={cn(
-                "w-[4.5rem] min-w-fit rounded-md px-2 py-0.5 text-right",
-                changePercent < 0
-                  ? "bg-red-300 text-red-800 dark:bg-red-950 dark:text-red-500"
-                  : "bg-green-300 text-green-800 dark:bg-green-950 dark:text-green-400"
-              )}
-            >
-              {decimalFormatter.format(changePercent)}%
+            <div className="w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right text-muted-foreground">
+              {NA_VALUE}
             </div>
           </div>
         )
@@ -203,8 +189,15 @@ export const columns: ColumnDef<Quote>[] = [
 
       return (
         <div className="flex justify-end">
-          <div className="w-[4.5rem] min-w-fit rounded-md px-2 py-0.5 text-right text-muted-foreground">
-            —
+          <div
+            className={cn(
+              "w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right",
+              changePercent < 0
+                ? "bg-red-300 text-red-800 dark:bg-red-950 dark:text-red-500"
+                : "bg-green-300 text-green-800 dark:bg-green-950 dark:text-green-400"
+            )}
+          >
+            {changePercent.toFixed(2)}%
           </div>
         </div>
       )
@@ -214,53 +207,54 @@ export const columns: ColumnDef<Quote>[] = [
     accessorKey: "regularMarketVolume",
     header: () => <div className="text-right">Volume</div>,
     cell: ({ row }) => {
-      const volume = row.getValue("regularMarketVolume") as number | null
+      const display = formatLargeNumber(row.original.regularMarketVolume)
 
-      if (typeof volume === "number") {
-        return (
-          <div className="text-right">
-            {compactNumberFormatter.format(volume)}
-          </div>
-        )
-      }
-
-      return <div className="text-right text-muted-foreground">—</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            display === NA_VALUE && "text-muted-foreground"
+          )}
+        >
+          {display}
+        </div>
+      )
     },
   },
   {
     accessorKey: "averageDailyVolume3Month",
     header: () => <div className="text-right">Avg Volume</div>,
     cell: ({ row }) => {
-      const averageVolume = row.getValue(
-        "averageDailyVolume3Month"
-      ) as number | null
+      const display = formatLargeNumber(row.original.averageDailyVolume3Month)
 
-      if (typeof averageVolume === "number") {
-        return (
-          <div className="text-right">
-            {compactNumberFormatter.format(averageVolume)}
-          </div>
-        )
-      }
-
-      return <div className="text-right text-muted-foreground">—</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            display === NA_VALUE && "text-muted-foreground"
+          )}
+        >
+          {display}
+        </div>
+      )
     },
   },
   {
     accessorKey: "marketCap",
     header: () => <div className="text-right">Market Cap</div>,
     cell: ({ row }) => {
-      const marketCap = row.getValue("marketCap") as number | null
+      const display = formatLargeNumber(row.original.marketCap)
 
-      if (typeof marketCap === "number") {
-        return (
-          <div className="text-right">
-            {compactNumberFormatter.format(marketCap)}
-          </div>
-        )
-      }
-
-      return <div className="text-right text-muted-foreground">—</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            display === NA_VALUE && "text-muted-foreground"
+          )}
+        >
+          {display}
+        </div>
+      )
     },
   },
 ]
