@@ -47,34 +47,37 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
     return applyInstrumentOverrides(offlineQuote, instrument)
   }
 
-  return {
-    symbol: instrument.symbol,
-    shortName: instrument.shortName,
-    regularMarketPrice: null,
-    regularMarketChange: null,
-    regularMarketChangePercent: null,
-    regularMarketDayLow: null,
-    regularMarketDayHigh: null,
-    fiftyTwoWeekLow: null,
-    fiftyTwoWeekHigh: null,
-    marketCap: null,
-    regularMarketVolume: null,
-    averageDailyVolume3Month: null,
-    regularMarketOpen: null,
-    regularMarketPreviousClose: null,
-    trailingEps: null,
-    trailingPE: null,
-    fullExchangeName: null,
-    currency: null,
-    regularMarketTime: null,
-    postMarketPrice: null,
-    postMarketChange: null,
-    postMarketChangePercent: null,
-    preMarketPrice: null,
-    preMarketChange: null,
-    preMarketChangePercent: null,
-    hasPrePostMarketData: false,
-  }, instrument.shortName)
+  return applyInstrumentOverrides(
+    {
+      symbol: instrument.symbol,
+      shortName: instrument.shortName,
+      regularMarketPrice: null,
+      regularMarketChange: null,
+      regularMarketChangePercent: null,
+      regularMarketDayLow: null,
+      regularMarketDayHigh: null,
+      fiftyTwoWeekLow: null,
+      fiftyTwoWeekHigh: null,
+      marketCap: null,
+      regularMarketVolume: null,
+      averageDailyVolume3Month: null,
+      regularMarketOpen: null,
+      regularMarketPreviousClose: null,
+      trailingEps: null,
+      trailingPE: null,
+      fullExchangeName: null,
+      currency: null,
+      regularMarketTime: null,
+      postMarketPrice: null,
+      postMarketChange: null,
+      postMarketChangePercent: null,
+      preMarketPrice: null,
+      preMarketChange: null,
+      preMarketChangePercent: null,
+      hasPrePostMarketData: false,
+    },
+    instrument
+  )
 }
 
 function applyInstrumentOverrides(
@@ -303,6 +306,30 @@ function hydratePeFromOfflineData(symbol: string, quote: Quote): Quote {
   }
 
   return merged
+}
+
+async function loadSummariesForSymbols(
+  symbols: string[]
+): Promise<Map<string, QuoteSummary | null>> {
+  if (symbols.length === 0) {
+    return new Map()
+  }
+
+  const uniqueSymbols = Array.from(new Set(symbols))
+
+  const entries = await Promise.all(
+    uniqueSymbols.map(async (symbol): Promise<[string, QuoteSummary | null]> => {
+      try {
+        const summary = await loadQuoteSummary(symbol)
+        return [symbol, summary]
+      } catch (error) {
+        console.warn(`Failed to load quote summary for ${symbol}`, error)
+        return [symbol, null]
+      }
+    })
+  )
+
+  return new Map(entries)
 }
 
 async function loadSummariesForSymbols(
