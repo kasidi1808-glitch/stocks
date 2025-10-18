@@ -33,14 +33,14 @@ export function hydratePeFromOfflineData(
 ): Quote {
   let hydrated = quote
 
-  if (
-    (!isFiniteNumber(hydrated.trailingPE) || hydrated.trailingPE <= 0) ||
-    !isFiniteNumber(hydrated.trailingEps)
-  ) {
+  const hasValidPe = () => isFiniteNumber(hydrated.trailingPE) && hydrated.trailingPE > 0
+  const hasValidEps = () => isFiniteNumber(hydrated.trailingEps) && hydrated.trailingEps !== 0
+
+  if (!hasValidPe() || !hasValidEps()) {
     hydrated = mergeQuoteWithSummary(hydrated, knownSummary)
   }
 
-  if (isFiniteNumber(hydrated.trailingPE) && hydrated.trailingPE > 0) {
+  if (hasValidPe() && hasValidEps()) {
     return hydrated
   }
 
@@ -49,11 +49,11 @@ export function hydratePeFromOfflineData(
     hydrated = mergeQuoteWithSummary(hydrated, offlineSummary)
   }
 
-  if (isFiniteNumber(hydrated.trailingPE) && hydrated.trailingPE > 0) {
+  if (hasValidPe() && hasValidEps()) {
     return hydrated
   }
 
-  if (!isFiniteNumber(hydrated.trailingEps) || hydrated.trailingEps === 0) {
+  if (!hasValidEps()) {
     return hydrated
   }
 
@@ -65,7 +65,7 @@ export function hydratePeFromOfflineData(
     return hydrated
   }
 
-  const computedPe = priceSource / hydrated.trailingEps
+  const computedPe = priceSource / (hydrated.trailingEps as number)
 
   if (Number.isFinite(computedPe) && computedPe > 0) {
     hydrated = { ...hydrated, trailingPE: computedPe }
