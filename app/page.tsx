@@ -154,7 +154,7 @@ export default async function Home({
 
   return (
     <div className="flex flex-col gap-4">
-      <AutoRefresh intervalMs={45_000} />
+      <AutoRefresh intervalMs={10_000} />
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="w-full lg:w-1/2">
           <Card className="relative flex h-full min-h-[15rem] flex-col justify-between overflow-hidden">
@@ -165,26 +165,38 @@ export default async function Home({
               </CardTitle>
             </CardHeader>
             {firstNews && firstNews.title && (
-              <CardFooter className="flex-col items-start">
-                <p className="mb-2 text-sm font-semibold text-neutral-500 dark:text-neutral-500">
-                  Latest on {selectedInstrument.shortName}
-                </p>
-                <Link
-                  prefetch={false}
-                  href={firstNews.link}
-                  className="text-lg font-extrabold"
-                >
-                  {firstNews.title}
-                </Link>
-                {(firstNews.publisher || firstNewsTimestamp) && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {firstNews.publisher && <span>{firstNews.publisher}</span>}
-                    {firstNews.publisher && firstNewsTimestamp && (
-                      <span aria-hidden="true"> • </span>
-                    )}
-                    {firstNewsTimestamp}
+              <>
+                <CardContent className="z-50">
+                  <p className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">
+                    What you need to know today
                   </p>
-                )}
+                </CardContent>
+                <CardFooter className="z-50 flex-col items-start gap-2">
+                  <Link
+                    prefetch={false}
+                    href={firstNews.link}
+                    className="text-lg font-extrabold"
+                  >
+                    {firstNews.title}
+                  </Link>
+                  {(firstNews.publisher || firstNewsTimestamp) && (
+                    <p className="text-xs text-muted-foreground">
+                      {firstNews.publisher && <span>{firstNews.publisher}</span>}
+                      {firstNews.publisher && firstNewsTimestamp && (
+                        <span aria-hidden="true"> • </span>
+                      )}
+                      {firstNewsTimestamp}
+                    </p>
+                  )}
+                </CardFooter>
+              </>
+            )}
+            {!firstNews && (
+              <CardFooter className="z-50 flex-col items-start">
+                <p className="text-sm text-muted-foreground">
+                  Live market headlines from Yahoo Finance will appear here as
+                  soon as they are available.
+                </p>
               </CardFooter>
             )}
             <div
