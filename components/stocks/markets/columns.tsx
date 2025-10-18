@@ -86,27 +86,6 @@ export const columns: ColumnDef<Quote>[] = [
     header: "Symbol",
     cell: (props) => {
       const { row } = props
-      const symbol = row.getValue("symbol") as string
-
-      return (
-        <Link
-          prefetch={false}
-          href={{
-            pathname: "/",
-            query: { ticker: symbol },
-          }}
-          className="font-medium"
-        >
-          {symbol}
-        </Link>
-      )
-    },
-  },
-  {
-    accessorKey: "shortName",
-    header: "Company",
-    cell: (props) => {
-      const { row } = props
       const symbol = row.original.symbol
       const name =
         (typeof row.original.shortName === "string" &&
