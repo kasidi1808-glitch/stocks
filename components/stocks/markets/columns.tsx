@@ -1,8 +1,6 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import type { Quote } from "@/types/yahoo-finance"
-import { cn } from "@/lib/utils"
 import Link from "next/link"
 
 const NA_VALUE = "N/A"
@@ -84,8 +82,29 @@ function formatLargeNumber(value: unknown): string {
 
 export const columns: ColumnDef<Quote>[] = [
   {
+    accessorKey: "symbol",
+    header: "Symbol",
+    cell: (props) => {
+      const { row } = props
+      const symbol = row.getValue("symbol") as string
+
+      return (
+        <Link
+          prefetch={false}
+          href={{
+            pathname: "/",
+            query: { ticker: symbol },
+          }}
+          className="font-medium"
+        >
+          {symbol}
+        </Link>
+      )
+    },
+  },
+  {
     accessorKey: "shortName",
-    header: "Title",
+    header: "Company",
     cell: (props) => {
       const { row } = props
       const symbol = row.original.symbol
