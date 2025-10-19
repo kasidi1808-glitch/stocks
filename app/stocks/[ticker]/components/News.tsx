@@ -6,21 +6,36 @@ import {
   differenceInDays,
 } from "date-fns"
 
-function timeAgo(publishTime: string | Date) {
+function timeAgo(publishTime?: number | string | Date | null) {
+  if (publishTime == null) {
+    return "Just now"
+  }
+
   const publishDate = new Date(publishTime)
+
+  if (Number.isNaN(publishDate.getTime())) {
+    return "Just now"
+  }
+
   const now = new Date()
 
   const diffInMinutes = differenceInMinutes(now, publishDate)
   const diffInHours = differenceInHours(now, publishDate)
   const diffInDays = differenceInDays(now, publishDate)
 
+  if (diffInMinutes < 1) {
+    return "Just now"
+  }
+
   if (diffInMinutes < 60) {
     return `${diffInMinutes} minutes ago`
-  } else if (diffInHours < 24) {
-    return `${diffInHours} hours ago`
-  } else {
-    return `${diffInDays} days ago`
   }
+
+  if (diffInHours < 24) {
+    return `${diffInHours} hours ago`
+  }
+
+  return `${diffInDays} days ago`
 }
 
 export default async function News({ ticker }: { ticker: string }) {
