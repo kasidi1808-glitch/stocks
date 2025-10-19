@@ -1,11 +1,10 @@
 import { unstable_noStore as noStore } from "next/cache"
 
-import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
+import type { QuoteSummary } from "@/types/yahoo-finance"
 
-import { fetchQuote } from "./fetchQuote"
+import { getOfflineQuoteSummary } from "@/data/offlineQuoteSummaries"
 
 import { yahooFinanceFetch } from "./client"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
 
 function createEmptyQuoteSummary(): QuoteSummary {
   return {
@@ -14,43 +13,6 @@ function createEmptyQuoteSummary(): QuoteSummary {
   }
 }
 
-function pruneSection<T extends Record<string, unknown>>(section: T): T | undefined {
-  const entries = Object.entries(section).filter(([, value]) => value != null)
-
-  if (entries.length === 0) {
-    return undefined
-  }
-
-  return Object.fromEntries(entries) as T
-}
-
-function buildSummaryFromQuote(quote: Quote): QuoteSummary | null {
-  const summaryDetail = pruneSection({
-    open: quote.regularMarketOpen ?? null,
-    dayHigh: quote.regularMarketDayHigh ?? null,
-    dayLow: quote.regularMarketDayLow ?? null,
-    volume: quote.regularMarketVolume ?? null,
-    trailingPE: quote.trailingPE ?? null,
-    marketCap: quote.marketCap ?? null,
-    fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh ?? null,
-    fiftyTwoWeekLow: quote.fiftyTwoWeekLow ?? null,
-    averageVolume: quote.averageDailyVolume3Month ?? null,
-  })
-
-  const defaultKeyStatistics = pruneSection({
-    trailingEps: quote.trailingEps ?? null,
-  })
-
-  if (!summaryDetail && !defaultKeyStatistics) {
-    return null
-  }
-
-  return {
-    summaryDetail,
-    defaultKeyStatistics,
-  }
-}
-
 type QuoteSummaryApiResponse = {
   quoteSummary?: {
     result?: Array<Record<string, unknown>>
@@ -100,78 +62,6 @@ async function fetchQuoteSummaryFromYahoo(
 }
 
 async function fetchQuoteSummaryFromFmp(
-  ticker: string
-): Promise<QuoteSummary | null> {
-  if (!isFmpApiAvailable()) {
-    return null
-  }
-
-  if (!summaryDetail && !defaultKeyStatistics) {
-    return null
-  }
-
-  return {
-    summaryDetail,
-    defaultKeyStatistics,
-  }
-}
-
-type QuoteSummaryApiResponse = {
-  quoteSummary?: {
-    result?: Array<Record<string, unknown>>
-  }
-}
-
-function normalizeQuoteSummary(raw: any): QuoteSummary {
-  if (!raw || typeof raw !== "object") {
-    return createEmptyQuoteSummary()
-  }
-
-  return {
-    summaryDetail: (raw.summaryDetail ?? {}) as QuoteSummary["summaryDetail"],
-    defaultKeyStatistics: (raw.defaultKeyStatistics ?? {}) as QuoteSummary["defaultKeyStatistics"],
-    summaryProfile: raw.summaryProfile ?? undefined,
-  }
-}
-
-async function fetchQuoteSummaryFromYahoo(
-  ticker: string
-): Promise<QuoteSummary | null> {
-  try {
-    const data = await yahooFinanceFetch<QuoteSummaryApiResponse>(
-      `v10/finance/quoteSummary/${encodeURIComponent(ticker)}`,
-      {
-        modules: [
-          "summaryDetail",
-          "defaultKeyStatistics",
-          "summaryProfile",
-        ].join(","),
-        region: "US",
-        lang: "en-US",
-      }
-    )
-
-    const rawResult = data.quoteSummary?.result?.[0]
-
-    if (!rawResult) {
-      return null
-    }
-
-    return normalizeQuoteSummary(rawResult)
-  } catch (error) {
-    console.warn(`Failed to fetch quote summary for ${ticker}`, error)
-    return null
-  }
-}
-
-async function fetchQuoteSummaryFromFmp(
-  ticker: string
-): Promise<QuoteSummary | null> {
-  if (!isFmpApiAvailable()) {
-    return null
-  }
-
-async function fetchQuoteSummaryFromYahoo(
   ticker: string
 ): Promise<QuoteSummary | null> {
   try {
@@ -184,9 +74,7 @@ async function fetchQuoteSummaryFromYahoo(
   }
 }
 
-export const loadQuoteSummary = async (
-  ticker: string
-): Promise<QuoteSummary> => {
+export async function loadQuoteSummary(ticker: string): Promise<QuoteSummary> {
   noStore()
 
   const yahooQuoteSummary = await fetchQuoteSummaryFromYahoo(ticker)
@@ -199,14 +87,9 @@ export const loadQuoteSummary = async (
     return fmpQuoteSummary
   }
 
-  try {
-    const quote = await fetchQuote(ticker)
-    const generatedSummary = buildSummaryFromQuote(quote)
-    if (generatedSummary) {
-      return generatedSummary
-    }
-  } catch (error) {
-    console.warn(`Unable to derive quote summary from live quote for ${ticker}`, error)
+  const offlineSummary = getOfflineQuoteSummary(ticker)
+  if (offlineSummary) {
+    return offlineSummary
   }
 
   console.warn(`Returning empty quote summary for ${ticker}`)
