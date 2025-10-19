@@ -232,21 +232,6 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return offlineQuote
   }
 
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
   return createEmptyQuote(normalizedTicker)
 }
 
