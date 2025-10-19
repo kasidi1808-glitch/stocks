@@ -14,10 +14,10 @@ export default async function MarketsChart({
   interval: Interval
   displayName?: string
 }) {
-  const chartData = await fetchChartData(ticker, range, interval)
-  const quoteData = await fetchQuote(ticker)
-
-  const [chart, quote] = await Promise.all([chartData, quoteData])
+  const [chart, quote] = await Promise.all([
+    fetchChartData(ticker, range, interval),
+    fetchQuote(ticker),
+  ])
 
   type ChartPoint = {
     date: Date | string | number

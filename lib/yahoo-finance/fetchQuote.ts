@@ -232,6 +232,11 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return offlineQuote
   }
 
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
+  }
+
   return createEmptyQuote(normalizedTicker)
 }
 
@@ -245,21 +250,39 @@ export async function loadQuotesForSymbols(
   const uniqueTickers = Array.from(new Set(normalizedTickers))
   const quotes = await fetchYahooQuotes(uniqueTickers)
 
-  const missingTickers = uniqueTickers.filter(
-    (ticker) => !quotes.has(ticker)
+  const missingTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+
+  if (missingTickers.length === 0) {
+    return quotes
+  }
+
+  const fallbackEntries = await Promise.all(
+    missingTickers.map(async (ticker) => {
+      try {
+        const fallbackQuote = await fetchQuote(ticker)
+        const normalizedSymbol = normalizeTicker(fallbackQuote.symbol) || ticker
+
+        return [normalizedSymbol, fallbackQuote] as const
+      } catch (error) {
+        console.warn(`Failed to hydrate quote for ${ticker}`, error)
+        const offlineQuote = getOfflineQuote(ticker)
+
+        if (offlineQuote) {
+          return [normalizeTicker(offlineQuote.symbol) || ticker, offlineQuote] as const
+        }
+
+        return null
+      }
+    })
   )
 
-  for (const ticker of missingTickers) {
-    try {
-      const fallbackQuote = await fetchQuote(ticker)
-
-      if (fallbackQuote) {
-        const normalizedSymbol = normalizeTicker(fallbackQuote.symbol) || ticker
-        quotes.set(normalizedSymbol, fallbackQuote)
-      }
-    } catch (error) {
-      console.warn(`Failed to hydrate quote for ${ticker}`, error)
+  for (const entry of fallbackEntries) {
+    if (!entry) {
+      continue
     }
+
+    const [symbol, quote] = entry
+    quotes.set(symbol, quote)
   }
 
   const stillMissing = uniqueTickers.filter((ticker) => !quotes.has(ticker))
