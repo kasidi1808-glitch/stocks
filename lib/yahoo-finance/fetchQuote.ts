@@ -2,40 +2,24 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import {
-  getOfflineQuote,
-  getOfflineQuotes,
-} from "@/data/offlineQuotes"
-
-import { fetchFmpQuote } from "@/lib/fmp/quotes"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
-import { applyDisplayMetrics } from "@/lib/markets/displayMetrics"
-
+import { getOfflineQuote } from "@/data/offlineQuotes"
+import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 
-import { yahooFinanceFetch } from "./client"
-
-export function normalizeTicker(ticker: string | null | undefined): string {
+export function normalizeTicker(ticker: string): string {
   if (typeof ticker !== "string") {
     return ""
   }
 
-  const trimmed = ticker.trim()
-
-  if (!trimmed) {
-    return ""
-  }
-
-  return trimmed.toUpperCase()
+  return ticker.trim().toUpperCase()
 }
 
 function createEmptyQuote(ticker: string): Quote {
-  const symbol = normalizeTicker(ticker) || ticker
+  const normalizedTicker = normalizeTicker(ticker)
 
-  const emptyQuote: Quote = {
-    symbol,
-    shortName: symbol || ticker,
-    marketState: null,
+  return {
+    symbol: normalizedTicker,
+    shortName: normalizedTicker,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -250,67 +234,15 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
 
   const normalizedTicker = normalizeTicker(tickerSymbol)
 
-  if (!normalizedTicker) {
-    return createEmptyQuote(tickerSymbol)
-  }
-
   const yahooQuotes = await fetchYahooQuotes([normalizedTicker])
   const yahooQuote = yahooQuotes.get(normalizedTicker)
   if (yahooQuote) {
     return yahooQuote
   }
 
-  try {
-    const directYahooQuote = await yahooFinance.quote(
-      normalizedTicker,
-      undefined,
-      { validateResult: false }
-    )
-
-    if (directYahooQuote) {
-      const normalizedQuote = applyDisplayMetrics(
-        normalizeYahooQuote(directYahooQuote)
-      )
-
-      if (normalizedQuote.symbol) {
-        return normalizedQuote
-      }
-    }
-  } catch (error) {
-    console.warn(`Direct Yahoo quote lookup failed for ${normalizedTicker}`, error)
-  }
-
-  if (isFmpApiAvailable()) {
-    try {
-      const fmpQuote = await fetchFmpQuote(normalizedTicker)
-      if (fmpQuote) {
-        return applyDisplayMetrics(fmpQuote)
-      }
-    } catch (error) {
-      console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
-    }
-  } catch (error) {
-    console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
-  }
-
   const offlineQuote = getOfflineQuote(normalizedTicker)
   if (offlineQuote) {
     return offlineQuote
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return applyDisplayMetrics(offlineQuote)
   }
 
   return createEmptyQuote(normalizedTicker)
@@ -318,15 +250,13 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
 
 export async function loadQuotesForSymbols(
   tickers: string[]
-): Promise<Map<string, Quote>> {
-  const normalizedTickers = tickers
-    .map((ticker) => normalizeTicker(ticker))
-    .filter((ticker): ticker is string => ticker.length > 0)
-
+): Promise<Map<string, Quote>> => {
+  const normalizedTickers = tickers.map((ticker) => normalizeTicker(ticker))
   const uniqueTickers = Array.from(new Set(normalizedTickers))
-  const quotes = await fetchYahooQuotes(uniqueTickers)
+  const filteredTickers = uniqueTickers.filter((ticker) => ticker !== "")
+  const quotes = await fetchYahooQuotes(filteredTickers)
 
-  const missingTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+  const unresolvedTickers = filteredTickers.filter((ticker) => !quotes.has(ticker))
 
   if (missingTickers.length === 0) {
     return quotes

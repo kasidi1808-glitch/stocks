@@ -95,9 +95,14 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     normalizeName(rawQuote?.longName) ??
     symbol
 
+  const symbol = normalizeTicker(
+    typeof rawQuote?.symbol === "string" ? rawQuote.symbol : ""
+  )
+
   return {
     symbol,
-    shortName,
+    shortName:
+      rawQuote?.shortName ?? rawQuote?.longName ?? symbol ?? "",
     regularMarketPrice,
     regularMarketChange: toNumber(offlineQuote.regularMarketChange),
     regularMarketChangePercent: toNumber(
@@ -115,23 +120,28 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
 
 const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const
 
-function toScreenerQuote(symbol: string): ScreenerQuote {
-  const normalizedSymbol = normalizeTicker(symbol) || symbol
-  const offlineQuote = getOfflineQuote(normalizedSymbol) ?? getOfflineQuote(symbol)
+function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
+  const normalizedSymbol = normalizeTicker(symbol)
 
-  if (!offlineQuote) {
-    return {
-      symbol: normalizedSymbol,
-      shortName: normalizedSymbol,
-      regularMarketPrice: null,
-      regularMarketChange: null,
-      regularMarketChangePercent: null,
-      regularMarketVolume: null,
-      averageDailyVolume3Month: null,
-      marketCap: null,
-      epsTrailingTwelveMonths: null,
-      trailingPE: null,
-    }
+  return {
+    symbol: normalizedSymbol,
+    shortName: normalizedSymbol,
+    regularMarketPrice: null,
+    regularMarketChange: null,
+    regularMarketChangePercent: null,
+    regularMarketVolume: null,
+    averageDailyVolume3Month: null,
+    marketCap: null,
+    epsTrailingTwelveMonths: null,
+    trailingPE: null,
+  }
+}
+
+function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuote {
+  const normalizedSymbol = normalizeTicker(symbol)
+
+  if (!quote) {
+    return createEmptyScreenerQuote(normalizedSymbol)
   }
 
   const metrics = getDisplayMetrics(offlineQuote)
@@ -142,10 +152,8 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
   return {
-    symbol: normalizeTicker(offlineQuote.symbol) || normalizedSymbol,
-    shortName:
-      normalizeName(offlineQuote.shortName) ??
-      (normalizeTicker(offlineQuote.symbol) || normalizedSymbol),
+    symbol: normalizeTicker(quote.symbol ?? normalizedSymbol),
+    shortName: quote.shortName ?? quote.symbol ?? normalizedSymbol,
     regularMarketPrice,
     regularMarketChange:
       metrics.change ?? toNumber(offlineQuote.regularMarketChange),
@@ -183,11 +191,13 @@ async function hydrateWithLiveQuotes(
   try {
     const liveQuotes = await loadQuotesForSymbols(symbols)
 
-    return quotes.map((quote) => {
-      const normalizedSymbol = normalizeTicker(quote.symbol)
-      const liveQuote =
-        (normalizedSymbol && liveQuotes.get(normalizedSymbol)) ??
-        liveQuotes.get(quote.symbol)
+    const quotes = fallbackSymbols.map((symbol) => {
+      const normalizedSymbol = normalizeTicker(symbol)
+      return quoteToScreenerQuote(
+        normalizedSymbol,
+        quotesBySymbol.get(normalizedSymbol) ?? null
+      )
+    })
 
       if (!liveQuote) {
         return quote
