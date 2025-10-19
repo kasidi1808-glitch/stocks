@@ -2,6 +2,7 @@ import { fetchChartData } from "@/lib/yahoo-finance/fetchChartData"
 import type { Interval, Range } from "@/types/yahoo-finance"
 import AreaClosedChart from "./AreaClosedChart"
 import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
+import { getDisplayMetrics } from "@/lib/markets/displayMetrics"
 
 export default async function MarketsChart({
   ticker,
@@ -18,6 +19,8 @@ export default async function MarketsChart({
     fetchChartData(ticker, range, interval),
     fetchQuote(ticker),
   ])
+
+  const displayMetrics = getDisplayMetrics(quote)
 
   type ChartPoint = {
     date: Date | string | number
@@ -40,8 +43,8 @@ export default async function MarketsChart({
   }
 
   const normalizedMarketPrice =
-    typeof quote.regularMarketPrice === "number"
-      ? Number(quote.regularMarketPrice.toFixed(2))
+    typeof displayMetrics.price === "number"
+      ? Number(displayMetrics.price.toFixed(2))
       : null
 
   if (
@@ -66,13 +69,23 @@ export default async function MarketsChart({
   return (
     <>
       <div className="mb-0.5 font-medium">
-        {displayName ?? quote.shortName} ({quote.symbol}){" "}
-        {displayPrice !== null
-          ? displayPrice.toLocaleString(undefined, {
+        {displayName ?? quote.shortName} ({quote.symbol})
+        {displayPrice !== null ? (
+          <>
+            {" "}
+            {displayPrice.toLocaleString(undefined, {
               style: "currency",
               currency: quote.currency ?? undefined,
-            })
-          : "N/A"}
+            })}
+            {displayMetrics.source !== "regular" && (
+              <span className="ml-2 text-xs uppercase text-muted-foreground">
+                {displayMetrics.source === "post" ? "Post-Market" : "Pre-Market"}
+              </span>
+            )}
+          </>
+        ) : (
+          <> N/A</>
+        )}
       </div>
       {stockQuotes.length > 0 ? (
         <AreaClosedChart chartQuotes={stockQuotes} range={range} />

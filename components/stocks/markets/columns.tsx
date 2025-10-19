@@ -2,6 +2,7 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
+import { getDisplayMetrics } from "@/lib/markets/displayMetrics"
 
 const NA_VALUE = "N/A"
 
@@ -90,26 +91,57 @@ export const columns: ColumnDef<Quote>[] = [
   {
     accessorKey: "regularMarketPrice",
     header: () => <div className="text-right">Price</div>,
-    cell: ({ row }) => {
-      const display = formatPrice(row.original.regularMarketPrice)
+    cell: (props) => {
+      const { row } = props
+      const metrics = getDisplayMetrics(row.original)
+      const { price, source } = metrics
 
-      return (
-        <div
-          className={cn(
-            "text-right",
-            display === NA_VALUE && "text-muted-foreground"
-          )}
-        >
-          {display}
-        </div>
-      )
+      if (typeof price === "number") {
+        return (
+          <div className="text-right">
+            {price.toFixed(2)}
+            {source !== "regular" && (
+              <span className="ml-1 text-xs uppercase text-muted-foreground">
+                {source === "post" ? "Post" : "Pre"}
+              </span>
+            )}
+          </div>
+        )
+      }
+
+      return <div className="text-right text-muted-foreground">—</div>
+    },
+  },
+  {
+    accessorKey: "regularMarketChange",
+    header: () => <div className="text-right">$ Change</div>,
+    cell: (props) => {
+      const { row } = props
+      const { change } = getDisplayMetrics(row.original)
+
+      if (typeof change === "number") {
+        return (
+          <div
+            className={cn(
+              "text-right",
+              change < 0 ? "text-red-500" : "text-green-500"
+            )}
+          >
+            {change > 0 ? "+" : ""}
+            {change.toFixed(2)}
+          </div>
+        )
+      }
+
+      return <div className="text-right text-muted-foreground">—</div>
     },
   },
   {
     accessorKey: "regularMarketChangePercent",
     header: () => <div className="text-right">% Change</div>,
-    cell: ({ row }) => {
-      const changePercent = toNumber(row.original.regularMarketChangePercent)
+    cell: (props) => {
+      const { row } = props
+      const { changePercent } = getDisplayMetrics(row.original)
 
       if (changePercent === null) {
         return (

@@ -29,6 +29,7 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
   const placeholderQuote: Quote = {
     symbol: fallbackSymbol,
     shortName: instrument.shortName,
+    marketState: null,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -49,9 +50,11 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
     postMarketPrice: null,
     postMarketChange: null,
     postMarketChangePercent: null,
+    postMarketTime: null,
     preMarketPrice: null,
     preMarketChange: null,
     preMarketChangePercent: null,
+    preMarketTime: null,
     hasPrePostMarketData: false,
   }
 

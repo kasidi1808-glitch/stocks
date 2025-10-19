@@ -33,6 +33,7 @@ function createEmptyQuote(ticker: string): Quote {
   const emptyQuote: Quote = {
     symbol,
     shortName: symbol || ticker,
+    marketState: null,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -53,9 +54,11 @@ function createEmptyQuote(ticker: string): Quote {
     postMarketPrice: null,
     postMarketChange: null,
     postMarketChangePercent: null,
+    postMarketTime: null,
     preMarketPrice: null,
     preMarketChange: null,
     preMarketChangePercent: null,
+    preMarketTime: null,
     hasPrePostMarketData: false,
   })
 }
@@ -116,7 +119,8 @@ export function normalizeYahooQuote(response: any): Quote {
   return {
     symbol: response?.symbol ?? "",
     shortName: response?.shortName ?? response?.symbol ?? "",
-    regularMarketPrice,
+    marketState: typeof response?.marketState === "string" ? response.marketState : null,
+    regularMarketPrice: response?.regularMarketPrice ?? null,
     regularMarketChange: response?.regularMarketChange ?? null,
     regularMarketChangePercent: response?.regularMarketChangePercent ?? null,
     regularMarketDayLow: response?.regularMarketDayLow ?? null,
@@ -139,9 +143,17 @@ export function normalizeYahooQuote(response: any): Quote {
     postMarketPrice: response?.postMarketPrice ?? null,
     postMarketChange: response?.postMarketChange ?? null,
     postMarketChangePercent: response?.postMarketChangePercent ?? null,
+    postMarketTime:
+      typeof response?.postMarketTime === "number" && Number.isFinite(response.postMarketTime)
+        ? response.postMarketTime
+        : null,
     preMarketPrice: response?.preMarketPrice ?? null,
     preMarketChange: response?.preMarketChange ?? null,
     preMarketChangePercent: response?.preMarketChangePercent ?? null,
+    preMarketTime:
+      typeof response?.preMarketTime === "number" && Number.isFinite(response.preMarketTime)
+        ? response.preMarketTime
+        : null,
     hasPrePostMarketData:
       response?.postMarketPrice != null || response?.preMarketPrice != null,
   }
