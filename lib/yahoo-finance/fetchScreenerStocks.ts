@@ -7,9 +7,9 @@ import type {
 } from "@/types/yahoo-finance"
 
 import { getOfflineQuote } from "@/data/offlineQuotes"
-
+import { getDisplayMetrics } from "@/lib/markets/displayMetrics"
 import { yahooFinanceFetch } from "./client"
-import { normalizeTicker } from "./fetchQuote"
+import { loadQuotesForSymbols, normalizeTicker } from "./fetchQuote"
 
 const ITEMS_PER_PAGE = 40
 
@@ -134,7 +134,8 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
     }
   }
 
-  const regularMarketPrice = toNumber(offlineQuote.regularMarketPrice)
+  const metrics = getDisplayMetrics(offlineQuote)
+  const regularMarketPrice = metrics.price ?? toNumber(offlineQuote.regularMarketPrice)
   const epsTrailingTwelveMonths = toNumber(offlineQuote.trailingEps)
   const trailingPE =
     toNumber(offlineQuote.trailingPE) ??
@@ -146,10 +147,10 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
       normalizeName(offlineQuote.shortName) ??
       (normalizeTicker(offlineQuote.symbol) || normalizedSymbol),
     regularMarketPrice,
-    regularMarketChange: toNumber(offlineQuote.regularMarketChange),
-    regularMarketChangePercent: toNumber(
-      offlineQuote.regularMarketChangePercent
-    ),
+    regularMarketChange:
+      metrics.change ?? toNumber(offlineQuote.regularMarketChange),
+    regularMarketChangePercent:
+      metrics.changePercent ?? toNumber(offlineQuote.regularMarketChangePercent),
     regularMarketVolume: toNumber(offlineQuote.regularMarketVolume),
     averageDailyVolume3Month: toNumber(
       offlineQuote.averageDailyVolume3Month
@@ -157,6 +158,81 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
     marketCap: toNumber(offlineQuote.marketCap),
     epsTrailingTwelveMonths,
     trailingPE,
+    displayPrice: metrics.price,
+    displayChange: metrics.change,
+    displayChangePercent: metrics.changePercent,
+    displaySource: metrics.source,
+  }
+}
+
+async function hydrateWithLiveQuotes(
+  quotes: ScreenerQuote[]
+): Promise<ScreenerQuote[]> {
+  const symbols = Array.from(
+    new Set(
+      quotes
+        .map((quote) => normalizeTicker(quote.symbol))
+        .filter((symbol): symbol is string => symbol.length > 0)
+    )
+  )
+
+  if (symbols.length === 0) {
+    return quotes
+  }
+
+  try {
+    const liveQuotes = await loadQuotesForSymbols(symbols)
+
+    return quotes.map((quote) => {
+      const normalizedSymbol = normalizeTicker(quote.symbol)
+      const liveQuote =
+        (normalizedSymbol && liveQuotes.get(normalizedSymbol)) ??
+        liveQuotes.get(quote.symbol)
+
+      if (!liveQuote) {
+        return quote
+      }
+
+      const metrics = getDisplayMetrics(liveQuote)
+
+      const regularMarketPrice =
+        metrics.price ?? toNumber(liveQuote.regularMarketPrice)
+      const epsTrailingTwelveMonths =
+        toNumber(liveQuote.trailingEps) ?? quote.epsTrailingTwelveMonths ?? null
+
+      return {
+        ...quote,
+        shortName:
+          normalizeName(quote.shortName) ??
+          normalizeName(liveQuote.shortName) ??
+          (normalizedSymbol || liveQuote.symbol),
+        regularMarketPrice,
+        regularMarketChange:
+          metrics.change ?? toNumber(liveQuote.regularMarketChange),
+        regularMarketChangePercent:
+          metrics.changePercent ?? toNumber(liveQuote.regularMarketChangePercent),
+        regularMarketVolume:
+          toNumber(liveQuote.regularMarketVolume) ?? quote.regularMarketVolume ?? null,
+        averageDailyVolume3Month:
+          toNumber(liveQuote.averageDailyVolume3Month) ??
+          quote.averageDailyVolume3Month ??
+          null,
+        marketCap:
+          toNumber(liveQuote.marketCap) ?? quote.marketCap ?? null,
+        epsTrailingTwelveMonths,
+        trailingPE:
+          toNumber(liveQuote.trailingPE) ??
+          quote.trailingPE ??
+          calculatePe(regularMarketPrice, epsTrailingTwelveMonths),
+        displayPrice: metrics.price,
+        displayChange: metrics.change,
+        displayChangePercent: metrics.changePercent,
+        displaySource: metrics.source,
+      }
+    })
+  } catch (error) {
+    console.warn("Failed to hydrate screener quotes with live data", error)
+    return quotes
   }
 }
 
@@ -248,14 +324,23 @@ export async function fetchScreenerStocks(
       throw new Error("No screener results returned")
     }
 
-    return normalizeScreenerResult(response, query, limit)
+    const normalized = normalizeScreenerResult(response, query, limit)
+
+    const hydratedQuotes = await hydrateWithLiveQuotes(normalized.quotes)
+
+    return { ...normalized, quotes: hydratedQuotes }
   } catch (error) {
     console.warn("Failed to fetch screener stocks", error)
 
-    return createFallbackResult(
+    const fallback = createFallbackResult(
       query,
       limit,
       "Live screener results are currently unavailable. Showing placeholder symbols instead."
     )
+
+    return {
+      ...fallback,
+      quotes: await hydrateWithLiveQuotes(fallback.quotes),
+    }
   }
 }

@@ -5,6 +5,10 @@ import { CellContext, ColumnDef } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
 import { resolveCompanyName } from "@/lib/company-names"
 import type { ScreenerQuote } from "@/types/yahoo-finance"
+import {
+  type QuoteDisplayMetrics,
+  getDisplayMetrics as resolveQuoteMetrics,
+} from "@/lib/markets/displayMetrics"
 import Link from "next/link"
 
 function toNumber(value: unknown): number | null {
@@ -53,6 +57,36 @@ function formatVolume(value: unknown): string {
   }
 
   return numeric.toLocaleString()
+}
+
+function resolveDisplayMetrics(quote: ScreenerQuote): QuoteDisplayMetrics {
+  if (
+    Object.prototype.hasOwnProperty.call(quote, "displayPrice") &&
+    quote.displayPrice !== undefined
+  ) {
+    return {
+      price: quote.displayPrice ?? null,
+      change: quote.displayChange ?? null,
+      changePercent: quote.displayChangePercent ?? null,
+      source: quote.displaySource ?? "regular",
+    }
+  }
+
+  return {
+    ...resolveQuoteMetrics({
+      symbol: quote.symbol,
+      regularMarketPrice: toNumber(quote.regularMarketPrice),
+      regularMarketChange: toNumber(quote.regularMarketChange),
+      regularMarketChangePercent: toNumber(quote.regularMarketChangePercent),
+      postMarketPrice: null,
+      postMarketChange: null,
+      postMarketChangePercent: null,
+      preMarketPrice: null,
+      preMarketChange: null,
+      preMarketChangePercent: null,
+      hasPrePostMarketData: false,
+    }),
+  }
 }
 
 export const columns: ColumnDef<ScreenerQuote>[] = [
@@ -119,18 +153,23 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">Price</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const price = toNumber(row.getValue("regularMarketPrice"))
+      const metrics = resolveDisplayMetrics(row.original)
+      const { price, source } = metrics
 
-      return (
-        <div
-          className={cn(
-            "text-right",
-            formattedPrice === "—" && "text-muted-foreground"
-          )}
-        >
-          {formattedPrice}
-        </div>
-      )
+      if (typeof price === "number") {
+        return (
+          <div className="text-right">
+            {price.toFixed(2)}
+            {source !== "regular" && (
+              <span className="ml-1 text-xs uppercase text-muted-foreground">
+                {source === "post" ? "Post" : "Pre"}
+              </span>
+            )}
+          </div>
+        )
+      }
+
+      return <div className="text-right text-muted-foreground">—</div>
     },
   },
   {
@@ -139,7 +178,7 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">Change</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const marketChange = toNumber(row.getValue("regularMarketChange"))
+      const { change: marketChange } = resolveDisplayMetrics(row.original)
 
       if (marketChange === null) {
         return (
@@ -170,8 +209,8 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     header: () => <div className="text-right">% Change</div>,
     cell: (props: CellContext<ScreenerQuote, unknown>) => {
       const { row } = props
-      const marketChangePercent = toNumber(
-        row.getValue("regularMarketChangePercent")
+      const { changePercent: marketChangePercent } = resolveDisplayMetrics(
+        row.original
       )
 
       if (marketChangePercent === null) {

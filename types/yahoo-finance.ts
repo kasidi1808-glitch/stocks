@@ -27,6 +27,14 @@ export type ScreenerQuote = {
   marketCap?: number | null
   epsTrailingTwelveMonths?: number | null
   trailingPE?: number | null
+  /**
+   * Derived display fields that reflect the value Yahoo Finance highlights
+   * for the instrument (regular, pre-market, or post-market price).
+   */
+  displayPrice?: number | null
+  displayChange?: number | null
+  displayChangePercent?: number | null
+  displaySource?: QuoteDisplaySource
 }
 
 export type ScreenerResult = {
