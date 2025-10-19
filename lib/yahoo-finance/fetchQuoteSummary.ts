@@ -61,24 +61,9 @@ async function fetchQuoteSummaryFromYahoo(
   }
 }
 
-async function fetchQuoteSummaryFromFmp(
+export const loadQuoteSummary = async (
   ticker: string
-): Promise<QuoteSummary | null> {
-  if (!isFmpApiAvailable()) {
-    return null
-  }
-
-  try {
-    const { fetchFmpQuoteSummary } = await import("@/lib/fmp/quoteSummary")
-
-    return await fetchFmpQuoteSummary(ticker)
-  } catch (error) {
-    console.warn(`FMP quote summary lookup failed for ${ticker}`, error)
-    return null
-  }
-}
-
-export async function loadQuoteSummary(ticker: string): Promise<QuoteSummary> {
+): Promise<QuoteSummary> => {
   noStore()
 
   const yahooQuoteSummary = await fetchQuoteSummaryFromYahoo(ticker)
@@ -86,14 +71,14 @@ export async function loadQuoteSummary(ticker: string): Promise<QuoteSummary> {
     return yahooQuoteSummary
   }
 
-  const fmpQuoteSummary = await fetchQuoteSummaryFromFmp(ticker)
-  if (fmpQuoteSummary) {
-    return fmpQuoteSummary
-  }
-
-  const offlineSummary = getOfflineQuoteSummary(ticker)
-  if (offlineSummary) {
-    return offlineSummary
+  try {
+    const quote = await fetchQuote(ticker)
+    const generatedSummary = buildSummaryFromQuote(quote)
+    if (generatedSummary) {
+      return generatedSummary
+    }
+  } catch (error) {
+    console.warn(`Unable to derive quote summary from live quote for ${ticker}`, error)
   }
 
   console.warn(`Returning empty quote summary for ${ticker}`)

@@ -2,15 +2,7 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import {
-  getOfflineQuote,
-  getOfflineQuotes,
-} from "@/data/offlineQuotes"
-
-import { fetchFmpQuote } from "@/lib/fmp/quotes"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
-import { applyDisplayMetrics } from "@/lib/markets/displayMetrics"
-
+import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 
 import { yahooFinanceFetch } from "./client"
@@ -260,60 +252,7 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return yahooQuote
   }
 
-  try {
-    const directYahooQuote = await yahooFinance.quote(
-      normalizedTicker,
-      undefined,
-      { validateResult: false }
-    )
-
-    if (directYahooQuote) {
-      const normalizedQuote = applyDisplayMetrics(
-        normalizeYahooQuote(directYahooQuote)
-      )
-
-      if (normalizedQuote.symbol) {
-        return normalizedQuote
-      }
-    }
-  } catch (error) {
-    console.warn(`Direct Yahoo quote lookup failed for ${normalizedTicker}`, error)
-  }
-
-  if (isFmpApiAvailable()) {
-    try {
-      const fmpQuote = await fetchFmpQuote(normalizedTicker)
-      if (fmpQuote) {
-        return applyDisplayMetrics(fmpQuote)
-      }
-    } catch (error) {
-      console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
-    }
-  } catch (error) {
-    console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  const offlineQuote = getOfflineQuote(normalizedTicker)
-  if (offlineQuote) {
-    return applyDisplayMetrics(offlineQuote)
-  }
-
-  return createEmptyQuote(normalizedTicker)
+  return createEmptyQuote(tickerSymbol)
 }
 
 export async function loadQuotesForSymbols(

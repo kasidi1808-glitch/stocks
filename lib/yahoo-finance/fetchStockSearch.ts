@@ -4,9 +4,20 @@ import type {
   SearchNews,
   SearchResult,
 } from "@/node_modules/yahoo-finance2/dist/esm/src/modules/search"
-import { fetchFmpNews } from "@/lib/fmp/news"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
-import type { StockNewsResult } from "@/lib/fmp/news"
+
+type StockNewsArticle = {
+  id: string
+  uuid: string
+  title: string
+  link: string
+  publisher?: string
+  providerPublishTime?: number | Date
+  published_at: string
+}
+
+type StockNewsResult = {
+  news: StockNewsArticle[]
+}
 
 export async function fetchStockSearch(
   ticker: string,
@@ -34,20 +45,11 @@ export async function fetchStockSearch(
   } catch (error) {
     console.log("Failed to fetch stock search", error)
 
-    if (!isFmpApiAvailable()) {
-      return { news: [] }
-    }
-
-    try {
-      return await fetchFmpNews(ticker, newsCount)
-    } catch (fallbackError) {
-      console.log("Fallback stock news fetch failed", fallbackError)
-      return { news: [] }
-    }
+    return { news: [] }
   }
 }
 
-function mapYahooNewsArticle(article: SearchNews) {
+function mapYahooNewsArticle(article: SearchNews): StockNewsArticle {
   return {
     id: article.uuid,
     uuid: article.uuid,
