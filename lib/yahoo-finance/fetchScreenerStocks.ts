@@ -9,6 +9,7 @@ import type {
 import { getOfflineQuote } from "@/data/offlineQuotes"
 
 import { yahooFinanceFetch } from "./client"
+import { normalizeTicker } from "./fetchQuote"
 
 const ITEMS_PER_PAGE = 40
 
@@ -70,7 +71,18 @@ function calculatePe(price: number | null, eps: number | null): number | null {
   return ratio
 }
 
+function normalizeName(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
+  const symbol = normalizeTicker(rawQuote?.symbol)
   const regularMarketPrice = toNumber(rawQuote?.regularMarketPrice)
   const epsTrailingTwelveMonths = toNumber(
     rawQuote?.epsTrailingTwelveMonths
@@ -78,6 +90,10 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
   const trailingPE =
     toNumber(rawQuote?.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
+  const shortName =
+    normalizeName(rawQuote?.shortName) ??
+    normalizeName(rawQuote?.longName) ??
+    symbol
 
   const rawSymbol =
     normalizeString(rawQuote?.symbol) ?? normalizeString(rawQuote?.ticker) ?? ""
@@ -134,8 +150,8 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
   return {
-    symbol: offlineQuote.symbol,
-    shortName: offlineQuote.shortName ?? offlineQuote.symbol,
+    symbol,
+    shortName,
     regularMarketPrice,
     regularMarketChange: toNumber(offlineQuote.regularMarketChange),
     regularMarketChangePercent: toNumber(
@@ -151,26 +167,16 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
   })
 }
 
-function preferSymbol(
-  primary: string | null | undefined,
-  fallback: string
-): string {
-  if (typeof primary === "string" && primary.trim() !== "") {
-    return primary
-  }
-
-  return fallback
-}
-
 const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const
 
 function toScreenerQuote(symbol: string): ScreenerQuote {
-  const offlineQuote = getOfflineQuote(symbol)
+  const normalizedSymbol = normalizeTicker(symbol) || symbol
+  const offlineQuote = getOfflineQuote(normalizedSymbol) ?? getOfflineQuote(symbol)
 
   if (!offlineQuote) {
     return {
-      symbol,
-      shortName: symbol,
+      symbol: normalizedSymbol,
+      shortName: normalizedSymbol,
       regularMarketPrice: null,
       regularMarketChange: null,
       regularMarketChangePercent: null,
@@ -189,8 +195,10 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
   return {
-    symbol: offlineQuote.symbol,
-    shortName: offlineQuote.shortName ?? offlineQuote.symbol,
+    symbol: normalizeTicker(offlineQuote.symbol) || normalizedSymbol,
+    shortName:
+      normalizeName(offlineQuote.shortName) ??
+      (normalizeTicker(offlineQuote.symbol) || normalizedSymbol),
     regularMarketPrice,
     regularMarketChange: toNumber(offlineQuote.regularMarketChange),
     regularMarketChangePercent: toNumber(

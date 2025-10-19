@@ -11,7 +11,7 @@ import { fetchFmpQuote } from "@/lib/fmp/quotes"
 
 import { yahooFinanceFetch } from "./client"
 
-function normalizeTicker(ticker: string): string {
+export function normalizeTicker(ticker: string | null | undefined): string {
   if (typeof ticker !== "string") {
     return ""
   }
@@ -210,13 +210,22 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return yahooQuote
   }
 
-  try {
-    const fmpQuote = await fetchFmpQuote(normalizedTicker)
-    if (fmpQuote) {
-      return fmpQuote
+  if (isFmpApiAvailable()) {
+    try {
+      const fmpQuote = await fetchFmpQuote(normalizedTicker)
+      if (fmpQuote) {
+        return fmpQuote
+      }
+    } catch (error) {
+      console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
     }
   } catch (error) {
     console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
+  }
+
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
   }
 
   const offlineQuote = getOfflineQuote(normalizedTicker)
@@ -242,6 +251,13 @@ export async function loadQuotesForSymbols(
   )
 
   for (const ticker of missingTickers) {
+    const offlineQuote = getOfflineQuote(ticker)
+
+    if (offlineQuote) {
+      quotes.set(ticker, offlineQuote)
+      continue
+    }
+
     try {
       const fallbackQuote = await fetchQuote(ticker)
 
