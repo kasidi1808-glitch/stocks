@@ -5,6 +5,7 @@ import type { Quote } from "@/types/yahoo-finance"
 import { getOfflineQuote } from "@/data/offlineQuotes"
 import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
+import { getOfflineQuote, getOfflineQuotes } from "@/data/offlineQuotes"
 
 export function normalizeTicker(ticker: string): string {
   if (typeof ticker !== "string") {
