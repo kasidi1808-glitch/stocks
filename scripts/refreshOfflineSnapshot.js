@@ -2,19 +2,24 @@ const fs = require("fs")
 const path = require("path")
 const vm = require("vm")
 
-const FACTOR = 1.08
-const BASE_TIMESTAMP_CODE = "Date.UTC(2025, 0, 17, 20, 0, 0) / 1000"
+const yahooFinance = require("yahoo-finance2").default
 
-const PRICE_FIELDS = [
-  "regularMarketDayLow",
-  "regularMarketDayHigh",
-  "regularMarketOpen",
-  "fiftyTwoWeekLow",
-  "fiftyTwoWeekHigh",
+const QUOTES_FILE = path.join(__dirname, "..", "data", "offlineQuotes.ts")
+const SUMMARIES_FILE = path.join(
+  __dirname,
+  "..",
+  "data",
+  "offlineQuoteSummaries.ts"
+)
+
+const SUMMARY_MODULES = [
+  "summaryDetail",
+  "defaultKeyStatistics",
+  "summaryProfile",
 ]
 
-function readFile(relativePath) {
-  return fs.readFileSync(path.join(__dirname, "..", relativePath), "utf8")
+function readFile(filePath) {
+  return fs.readFileSync(filePath, "utf8")
 }
 
 function extractObjectLiteral(source, constName) {
@@ -66,316 +71,356 @@ function evaluateSummaries(objectLiteral) {
   return context.module.exports
 }
 
-function isNumber(value) {
-  return typeof value === "number" && Number.isFinite(value)
-}
-
-function roundPrice(value) {
-  if (!isNumber(value)) {
+function toNumber(value) {
+  if (value == null || Number.isNaN(Number(value))) {
     return null
   }
 
-  const abs = Math.abs(value)
-  const digits = abs >= 1 ? 2 : 4
-  return Number(value.toFixed(digits))
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
 }
 
-function roundEps(value) {
-  if (!isNumber(value)) {
+function pickQuoteFields(rawQuote, fallbackQuote = {}) {
+  const regularMarketTime = rawQuote?.regularMarketTime
+  const regularMarketTimeValue =
+    regularMarketTime instanceof Date
+      ? Math.floor(regularMarketTime.getTime() / 1000)
+      : toNumber(regularMarketTime)
+
+  const base = {
+    symbol: rawQuote?.symbol || fallbackQuote.symbol || "",
+    shortName:
+      rawQuote?.shortName || fallbackQuote.shortName || rawQuote?.symbol || "",
+    regularMarketPrice: toNumber(rawQuote?.regularMarketPrice),
+    regularMarketChange: toNumber(rawQuote?.regularMarketChange),
+    regularMarketChangePercent: toNumber(
+      rawQuote?.regularMarketChangePercent
+    ),
+    regularMarketDayLow: toNumber(rawQuote?.regularMarketDayLow),
+    regularMarketDayHigh: toNumber(rawQuote?.regularMarketDayHigh),
+    fiftyTwoWeekLow: toNumber(rawQuote?.fiftyTwoWeekLow),
+    fiftyTwoWeekHigh: toNumber(rawQuote?.fiftyTwoWeekHigh),
+    marketCap: toNumber(rawQuote?.marketCap),
+    regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
+    averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
+    regularMarketOpen: toNumber(rawQuote?.regularMarketOpen),
+    regularMarketPreviousClose: toNumber(
+      rawQuote?.regularMarketPreviousClose
+    ),
+    trailingEps: toNumber(rawQuote?.trailingEps),
+    trailingPE: toNumber(rawQuote?.trailingPE),
+    fullExchangeName: rawQuote?.fullExchangeName || null,
+    currency: rawQuote?.currency || null,
+    regularMarketTime: regularMarketTimeValue,
+    postMarketPrice: toNumber(rawQuote?.postMarketPrice),
+    postMarketChange: toNumber(rawQuote?.postMarketChange),
+    postMarketChangePercent: toNumber(rawQuote?.postMarketChangePercent),
+    preMarketPrice: toNumber(rawQuote?.preMarketPrice),
+    preMarketChange: toNumber(rawQuote?.preMarketChange),
+    preMarketChangePercent: toNumber(rawQuote?.preMarketChangePercent),
+    hasPrePostMarketData:
+      rawQuote?.postMarketPrice != null || rawQuote?.preMarketPrice != null,
+  }
+
+  return base
+}
+
+function pickSummaryFields(rawSummary) {
+  if (!rawSummary) {
     return null
   }
 
-  return Number(value.toFixed(2))
-}
+  const summaryDetail = rawSummary.summaryDetail || {}
+  const defaultKeyStatistics = rawSummary.defaultKeyStatistics || {}
+  const summaryProfile = rawSummary.summaryProfile || {}
 
-function adjustByFactor(value) {
-  if (!isNumber(value)) {
-    return null
-  }
+  const normalizedSummary = {}
 
-  return value * FACTOR
-}
-
-function computeChange(price, percent) {
-  if (!isNumber(price) || !isNumber(percent)) {
-    return null
-  }
-
-  return roundPrice((price * percent) / 100)
-}
-
-function transformQuote(original) {
-  const updated = { ...original }
-
-  const newPrice = adjustByFactor(original.regularMarketPrice)
-  if (isNumber(newPrice)) {
-    updated.regularMarketPrice = roundPrice(newPrice)
-  } else {
-    updated.regularMarketPrice = null
-  }
-
-  if (isNumber(original.trailingPE)) {
-    updated.trailingPE = Number(original.trailingPE)
-  }
-
-  updated.trailingEps = roundEps(adjustByFactor(original.trailingEps))
-
-  const percent = isNumber(original.regularMarketChangePercent)
-    ? original.regularMarketChangePercent
-    : null
-
-  if (updated.regularMarketPrice != null && percent != null) {
-    updated.regularMarketChange = computeChange(
-      updated.regularMarketPrice,
-      percent
-    )
-  } else if (isNumber(original.regularMarketChange)) {
-    updated.regularMarketChange = roundPrice(
-      adjustByFactor(original.regularMarketChange)
-    )
-  } else {
-    updated.regularMarketChange = null
-  }
-
-  if (updated.regularMarketPrice != null) {
-    if (updated.regularMarketChange != null) {
-      updated.regularMarketPreviousClose = roundPrice(
-        updated.regularMarketPrice - updated.regularMarketChange
-      )
-    } else if (isNumber(original.regularMarketPreviousClose)) {
-      updated.regularMarketPreviousClose = roundPrice(
-        adjustByFactor(original.regularMarketPreviousClose)
-      )
-    } else {
-      updated.regularMarketPreviousClose = null
-    }
-  } else if (isNumber(original.regularMarketPreviousClose)) {
-    updated.regularMarketPreviousClose = roundPrice(
-      adjustByFactor(original.regularMarketPreviousClose)
-    )
-  } else {
-    updated.regularMarketPreviousClose = null
-  }
-
-  for (const field of PRICE_FIELDS) {
-    if (isNumber(original[field])) {
-      updated[field] = roundPrice(adjustByFactor(original[field]))
-    } else {
-      updated[field] = null
+  if (Object.keys(summaryDetail).length > 0) {
+    normalizedSummary.summaryDetail = {
+      open: toNumber(summaryDetail.open),
+      dayHigh: toNumber(summaryDetail.dayHigh),
+      dayLow: toNumber(summaryDetail.dayLow),
+      volume: toNumber(summaryDetail.volume),
+      trailingPE: toNumber(summaryDetail.trailingPE),
+      marketCap: toNumber(summaryDetail.marketCap),
+      fiftyTwoWeekHigh: toNumber(summaryDetail.fiftyTwoWeekHigh),
+      fiftyTwoWeekLow: toNumber(summaryDetail.fiftyTwoWeekLow),
+      averageVolume: toNumber(summaryDetail.averageVolume),
+      dividendYield: toNumber(summaryDetail.dividendYield),
+      beta: toNumber(summaryDetail.beta),
     }
   }
 
-  if (isNumber(original.postMarketPrice)) {
-    updated.postMarketPrice = roundPrice(adjustByFactor(original.postMarketPrice))
-  } else {
-    updated.postMarketPrice = null
+  if (Object.keys(defaultKeyStatistics).length > 0) {
+    normalizedSummary.defaultKeyStatistics = {
+      trailingEps: toNumber(defaultKeyStatistics.trailingEps),
+    }
   }
 
-  if (isNumber(original.postMarketChangePercent) && updated.postMarketPrice != null) {
-    updated.postMarketChange = computeChange(
-      updated.postMarketPrice,
-      original.postMarketChangePercent
-    )
-  } else if (isNumber(original.postMarketChange)) {
-    updated.postMarketChange = roundPrice(
-      adjustByFactor(original.postMarketChange)
-    )
-  } else {
-    updated.postMarketChange = null
+  if (Object.keys(summaryProfile).length > 0) {
+    normalizedSummary.summaryProfile = {
+      longBusinessSummary: summaryProfile.longBusinessSummary || null,
+      sector: summaryProfile.sector || null,
+      industryDisp: summaryProfile.industryDisp || null,
+      country: summaryProfile.country || null,
+      fullTimeEmployees: toNumber(summaryProfile.fullTimeEmployees),
+      website: summaryProfile.website || null,
+    }
   }
 
-  if (isNumber(original.postMarketChangePercent)) {
-    updated.postMarketChangePercent = Number(original.postMarketChangePercent)
-  } else {
-    delete updated.postMarketChangePercent
-  }
-
-  if (isNumber(original.preMarketPrice)) {
-    updated.preMarketPrice = roundPrice(adjustByFactor(original.preMarketPrice))
-  } else {
-    updated.preMarketPrice = null
-  }
-
-  if (isNumber(original.preMarketChangePercent) && updated.preMarketPrice != null) {
-    updated.preMarketChange = computeChange(
-      updated.preMarketPrice,
-      original.preMarketChangePercent
-    )
-  } else if (isNumber(original.preMarketChange)) {
-    updated.preMarketChange = roundPrice(
-      adjustByFactor(original.preMarketChange)
-    )
-  } else {
-    updated.preMarketChange = null
-  }
-
-  if (isNumber(original.preMarketChangePercent)) {
-    updated.preMarketChangePercent = Number(original.preMarketChangePercent)
-  } else {
-    delete updated.preMarketChangePercent
-  }
-
-  if (isNumber(original.marketCap)) {
-    updated.marketCap = Math.round(adjustByFactor(original.marketCap))
-  } else {
-    updated.marketCap = null
-  }
-
-  if (isNumber(original.regularMarketVolume)) {
-    updated.regularMarketVolume = Math.round(original.regularMarketVolume)
-  } else {
-    updated.regularMarketVolume = null
-  }
-
-  if (isNumber(original.averageDailyVolume3Month)) {
-    updated.averageDailyVolume3Month = Math.round(
-      original.averageDailyVolume3Month
-    )
-  } else {
-    updated.averageDailyVolume3Month = null
-  }
-
-  if (!isNumber(original.trailingPE)) {
-    delete updated.trailingPE
-  }
-
-  if (!isNumber(original.trailingEps)) {
-    updated.trailingEps = null
-  }
-
-  return updated
+  return Object.keys(normalizedSummary).length > 0 ? normalizedSummary : null
 }
 
-function formatQuoteEntry(symbol, quote) {
-  const json = JSON.stringify(quote, null, 2).replace(
-    /"([A-Za-z0-9_]+)":/g,
-    "$1:"
+function formatString(value) {
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+}
+
+function formatNumber(value) {
+  if (value == null || Number.isNaN(value)) {
+    return "null"
+  }
+
+  if (Number.isInteger(value)) {
+    return String(value)
+  }
+
+  return Number(value.toFixed(6)).toString()
+}
+
+function formatQuoteRecord(record) {
+  const lines = []
+
+  const stringFields = new Set(["symbol", "shortName", "fullExchangeName", "currency"])
+
+  for (const [key, value] of Object.entries(record)) {
+    if (value == null) {
+      continue
+    }
+
+    if (stringFields.has(key)) {
+      lines.push(`    ${key}: ${formatString(value)},`)
+    } else if (typeof value === "boolean") {
+      lines.push(`    ${key}: ${value ? "true" : "false"},`)
+    } else {
+      lines.push(`    ${key}: ${formatNumber(value)},`)
+    }
+  }
+
+  return lines.join("\n")
+}
+
+function formatQuotes(quotesMap, baseTimestamp) {
+  const lines = [
+    "import type { Quote } from \"@/types/yahoo-finance\"",
+    "",
+    `const BASE_TIMESTAMP = ${baseTimestamp}`,
+    "",
+    "const buildQuote = (quote: Quote): Quote => ({",
+    "  regularMarketTime: BASE_TIMESTAMP,",
+    "  currency: quote.currency ?? \"USD\",",
+    "  ...quote,",
+    "})",
+    "",
+    "const OFFLINE_QUOTES: Record<string, Quote> = {",
+  ]
+
+  quotesMap.forEach((quote, symbol) => {
+    const body = formatQuoteRecord(quote)
+    lines.push(`  \"${symbol}\": buildQuote({`)
+    if (body) {
+      lines.push(body)
+    }
+    lines.push("  }),")
+  })
+
+  lines.push("}")
+  lines.push("")
+  lines.push("export function getOfflineQuote(symbol: string): Quote | null {")
+  lines.push("  const quote = OFFLINE_QUOTES[symbol]")
+  lines.push("")
+  lines.push("  if (!quote) {")
+  lines.push("    return null")
+  lines.push("  }")
+  lines.push("")
+  lines.push("  return { ...quote }")
+  lines.push("}")
+  lines.push("")
+  lines.push("export function getOfflineQuotes(symbols: string[]): Map<string, Quote> {")
+  lines.push("  const entries = symbols")
+  lines.push(
+    "    .map((symbol) => [symbol, getOfflineQuote(symbol)] as const)"
   )
-  const bodyLines = json.split("\n").slice(1, -1)
-  const formattedBody = bodyLines.map((line) => `    ${line.trim()}`).join("\n")
-  return `  "${symbol}": buildQuote({\n${formattedBody}\n  }),`
-}
-
-function writeOfflineQuotes(quotes, sourcePath) {
-  const header = `import type { Quote } from "@/types/yahoo-finance"\n\nconst BASE_TIMESTAMP = ${BASE_TIMESTAMP_CODE}\n\nconst buildQuote = (quote: Quote): Quote => ({\n  regularMarketTime: BASE_TIMESTAMP,\n  currency: "USD",\n  ...quote,\n})\n\nconst OFFLINE_QUOTES: Record<string, Quote> = {\n`
-
-  const entries = Object.entries(quotes).map(([symbol, quote]) =>
-    formatQuoteEntry(symbol, quote)
+  lines.push(
+    "    .filter(([, quote]) => quote !== null) as Array<[string, Quote]>"
   )
+  lines.push("")
+  lines.push("  return new Map(entries)")
+  lines.push("}")
+  lines.push("")
+  lines.push("export function hasOfflineQuote(symbol: string): boolean {")
+  lines.push("  return Boolean(OFFLINE_QUOTES[symbol])")
+  lines.push("}")
+  lines.push("")
+  lines.push("export const OFFLINE_SYMBOLS = Object.keys(OFFLINE_QUOTES)")
+  lines.push("")
 
-  const footer = `}\n\nexport function getOfflineQuote(symbol: string): Quote | null {\n  const quote = OFFLINE_QUOTES[symbol]\n\n  if (!quote) {\n    return null\n  }\n\n  return { ...quote }\n}\n\nexport function getOfflineQuotes(symbols: string[]): Map<string, Quote> {\n  const entries = symbols\n    .map((symbol) => [symbol, getOfflineQuote(symbol)] as const)\n    .filter(([, quote]) => quote !== null) as Array<[string, Quote]>\n\n  return new Map(entries)\n}\n\nexport function hasOfflineQuote(symbol: string): boolean {\n  return Boolean(OFFLINE_QUOTES[symbol])\n}\n\nexport const OFFLINE_SYMBOLS = Object.keys(OFFLINE_QUOTES)\n`
-
-  fs.writeFileSync(sourcePath, `${header}${entries.join("\n")}\n${footer}\n`)
+  return lines.join("\n")
 }
 
-function updateSummaryFromQuote(summary, quote) {
-  if (!summary || !quote) {
+function formatSummaryRecord(record) {
+  const lines = []
+
+  if (record.summaryDetail) {
+    lines.push("    summaryDetail: {")
+    Object.entries(record.summaryDetail).forEach(([key, value]) => {
+      if (value == null) {
+        return
+      }
+      lines.push(`      ${key}: ${formatNumber(value)},`)
+    })
+    lines.push("    },")
+  }
+
+  if (record.defaultKeyStatistics) {
+    lines.push("    defaultKeyStatistics: {")
+    Object.entries(record.defaultKeyStatistics).forEach(([key, value]) => {
+      if (value == null) {
+        return
+      }
+      lines.push(`      ${key}: ${formatNumber(value)},`)
+    })
+    lines.push("    },")
+  }
+
+  if (record.summaryProfile) {
+    lines.push("    summaryProfile: {")
+    Object.entries(record.summaryProfile).forEach(([key, value]) => {
+      if (value == null) {
+        return
+      }
+      if (key === "fullTimeEmployees") {
+        lines.push(`      ${key}: ${formatNumber(value)},`)
+      } else {
+        lines.push(`      ${key}: ${formatString(value)},`)
+      }
+    })
+    lines.push("    },")
+  }
+
+  return lines.join("\n")
+}
+
+function formatSummaries(summariesMap) {
+  const lines = [
+    "import type { QuoteSummary } from \"@/types/yahoo-finance\"",
+    "",
+    "const OFFLINE_SUMMARIES: Record<string, QuoteSummary> = {",
+  ]
+
+  summariesMap.forEach((summary, symbol) => {
+    const body = summary ? formatSummaryRecord(summary) : ""
+    lines.push(`  ${symbol}: {`)
+    if (body) {
+      lines.push(body)
+    }
+    lines.push("  },")
+  })
+
+  lines.push("}")
+  lines.push("")
+  lines.push("export function getOfflineQuoteSummary(symbol: string): QuoteSummary | null {")
+  lines.push("  return OFFLINE_SUMMARIES[symbol] ?? null")
+  lines.push("}")
+  lines.push("")
+  lines.push("export function hasOfflineQuoteSummary(symbol: string): boolean {")
+  lines.push("  return Boolean(OFFLINE_SUMMARIES[symbol])")
+  lines.push("}")
+  lines.push("")
+  lines.push("export const OFFLINE_SUMMARY_SYMBOLS = Object.keys(OFFLINE_SUMMARIES)")
+  lines.push("")
+
+  return lines.join("\n")
+}
+
+async function fetchQuote(symbol) {
+  try {
+    const quote = await yahooFinance.quote(symbol)
+    return quote
+  } catch (error) {
+    console.warn(`Failed to fetch quote for ${symbol}`, error)
+    return null
+  }
+}
+
+async function fetchQuoteSummary(symbol) {
+  try {
+    const summary = await yahooFinance.quoteSummary(symbol, {
+      modules: SUMMARY_MODULES,
+    })
     return summary
+  } catch (error) {
+    console.warn(`Failed to fetch quote summary for ${symbol}`, error)
+    return null
   }
-
-  const updated = { ...summary }
-
-  if (updated.summaryDetail) {
-    const detail = { ...updated.summaryDetail }
-
-    if (detail.open != null && quote.regularMarketOpen != null) {
-      detail.open = quote.regularMarketOpen
-    }
-
-    if (detail.dayHigh != null && quote.regularMarketDayHigh != null) {
-      detail.dayHigh = quote.regularMarketDayHigh
-    }
-
-    if (detail.dayLow != null && quote.regularMarketDayLow != null) {
-      detail.dayLow = quote.regularMarketDayLow
-    }
-
-    if (detail.volume != null && quote.regularMarketVolume != null) {
-      detail.volume = quote.regularMarketVolume
-    }
-
-    if (detail.trailingPE != null && quote.trailingPE != null) {
-      detail.trailingPE = quote.trailingPE
-    }
-
-    if (detail.marketCap != null && quote.marketCap != null) {
-      detail.marketCap = quote.marketCap
-    }
-
-    if (detail.fiftyTwoWeekHigh != null && quote.fiftyTwoWeekHigh != null) {
-      detail.fiftyTwoWeekHigh = quote.fiftyTwoWeekHigh
-    }
-
-    if (detail.fiftyTwoWeekLow != null && quote.fiftyTwoWeekLow != null) {
-      detail.fiftyTwoWeekLow = quote.fiftyTwoWeekLow
-    }
-
-    if (detail.averageVolume != null && quote.averageDailyVolume3Month != null) {
-      detail.averageVolume = quote.averageDailyVolume3Month
-    }
-
-    updated.summaryDetail = detail
-  }
-
-  if (updated.defaultKeyStatistics) {
-    const stats = { ...updated.defaultKeyStatistics }
-
-    if (stats.trailingEps != null && quote.trailingEps != null) {
-      stats.trailingEps = quote.trailingEps
-    }
-
-    updated.defaultKeyStatistics = stats
-  }
-
-  return updated
 }
 
-function writeOfflineSummaries(summaries, quotes, sourcePath) {
-  const updatedSummaries = {}
-  for (const [symbol, summary] of Object.entries(summaries)) {
-    updatedSummaries[symbol] = updateSummaryFromQuote(summary, quotes[symbol])
-  }
-
-  const content = JSON.stringify(updatedSummaries, null, 2).replace(
-    /"([A-Za-z0-9_]+)":/g,
-    "$1:"
-  )
-
-  const fileContent = `import type { QuoteSummary } from "@/types/yahoo-finance"\n\nconst OFFLINE_SUMMARIES: Record<string, QuoteSummary> = ${content}\n\nexport function getOfflineQuoteSummary(symbol: string): QuoteSummary | null {\n  const summary = OFFLINE_SUMMARIES[symbol]\n\n  if (!summary) {\n    return null\n  }\n\n  return {\n    summaryDetail: { ...summary.summaryDetail },\n    defaultKeyStatistics: { ...summary.defaultKeyStatistics },\n    summaryProfile: summary.summaryProfile\n      ? { ...summary.summaryProfile }\n      : undefined,\n  }\n}\n`
-
-  fs.writeFileSync(sourcePath, `${fileContent}\n`)
-}
-
-function main() {
-  const quotesSource = readFile("data/offlineQuotes.ts")
-  const summariesSource = readFile("data/offlineQuoteSummaries.ts")
-
+async function main() {
+  const quotesSource = readFile(QUOTES_FILE)
   const quotesLiteral = extractObjectLiteral(quotesSource, "OFFLINE_QUOTES")
+  const baseQuotes = evaluateQuotes(quotesLiteral)
+
+  const summariesSource = readFile(SUMMARIES_FILE)
   const summariesLiteral = extractObjectLiteral(
     summariesSource,
     "OFFLINE_SUMMARIES"
   )
+  const baseSummaries = evaluateSummaries(summariesLiteral)
 
-  const quotes = evaluateQuotes(quotesLiteral)
-  const transformedQuotes = {}
+  const symbols = Object.keys(baseQuotes)
 
-  for (const [symbol, quote] of Object.entries(quotes)) {
-    transformedQuotes[symbol] = transformQuote(quote)
+  const quoteResults = new Map()
+  const summaryResults = new Map()
+
+  for (const symbol of symbols) {
+    const rawQuote = await fetchQuote(symbol)
+    const fallbackQuote = baseQuotes[symbol]
+    if (rawQuote) {
+      quoteResults.set(symbol, pickQuoteFields(rawQuote, fallbackQuote))
+    } else {
+      console.warn(`Using fallback quote for ${symbol}`)
+      quoteResults.set(symbol, fallbackQuote)
+    }
+
+    const rawSummary = await fetchQuoteSummary(symbol)
+    if (rawSummary) {
+      summaryResults.set(symbol, pickSummaryFields(rawSummary))
+    } else {
+      console.warn(`Using fallback summary for ${symbol}`)
+      summaryResults.set(symbol, baseSummaries[symbol] || null)
+    }
   }
 
-  writeOfflineQuotes(
-    transformedQuotes,
-    path.join(__dirname, "..", "data", "offlineQuotes.ts")
-  )
+  const mostRecentTime = Array.from(quoteResults.values())
+    .map((quote) => quote.regularMarketTime)
+    .filter((value) => value != null)
+    .reduce((latest, value) => Math.max(latest, value), 0)
 
-  const summaries = evaluateSummaries(summariesLiteral)
-  writeOfflineSummaries(
-    summaries,
-    transformedQuotes,
-    path.join(__dirname, "..", "data", "offlineQuoteSummaries.ts")
-  )
+  const timestampDate = new Date((mostRecentTime || Date.now() / 1000) * 1000)
+  const baseTimestamp = `Date.UTC(${timestampDate.getUTCFullYear()}, ${timestampDate.getUTCMonth()}, ${timestampDate.getUTCDate()}, ${timestampDate.getUTCHours()}, ${timestampDate.getUTCMinutes()}, ${timestampDate.getUTCSeconds()}) / 1000`
 
-  console.log("Offline Yahoo Finance snapshot refreshed with updated values.")
+  const quotesContent = formatQuotes(quoteResults, baseTimestamp)
+  fs.writeFileSync(QUOTES_FILE, `${quotesContent}\n`)
+
+  const summariesContent = formatSummaries(summaryResults)
+  fs.writeFileSync(SUMMARIES_FILE, `${summariesContent}\n`)
+
+  console.log(
+    `Updated offline snapshots for ${symbols.length} symbols at ${timestampDate.toISOString()}`
+  )
 }
 
-main()
+main().catch((error) => {
+  console.error("Failed to refresh offline snapshot", error)
+  process.exit(1)
+})

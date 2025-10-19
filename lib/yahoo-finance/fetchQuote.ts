@@ -2,18 +2,9 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import { getOfflineQuote } from "@/data/offlineQuotes"
 import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 import { getOfflineQuote, getOfflineQuotes } from "@/data/offlineQuotes"
-
-export function normalizeTicker(ticker: string): string {
-  if (typeof ticker !== "string") {
-    return ""
-  }
-
-  return ticker.trim().toUpperCase()
-}
 
 function createEmptyQuote(ticker: string): Quote {
   const normalizedTicker = normalizeTicker(ticker)
@@ -241,7 +232,7 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return yahooQuote
   }
 
-  const offlineQuote = getOfflineQuote(normalizedTicker)
+  const offlineQuote = getOfflineQuote(tickerSymbol)
   if (offlineQuote) {
     return offlineQuote
   }
@@ -259,9 +250,19 @@ export async function loadQuotesForSymbols(
 
   const unresolvedTickers = filteredTickers.filter((ticker) => !quotes.has(ticker))
 
-  if (missingTickers.length === 0) {
-    return quotes
+  if (unresolvedTickers.length > 0) {
+    const offlineQuotes = getOfflineQuotes(unresolvedTickers)
+
+    offlineQuotes.forEach((quote, symbol) => {
+      quotes.set(symbol, quote)
+    })
   }
+
+  const stillMissing = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+
+  for (const ticker of stillMissing) {
+    try {
+      const fallbackQuote = await fetchQuote(ticker)
 
   const fallbackEntries = await Promise.all(
     missingTickers.map(async (ticker) => {
