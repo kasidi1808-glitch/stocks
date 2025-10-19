@@ -22,6 +22,7 @@ import {
 } from "@/lib/yahoo-finance/fetchChartData"
 import { fetchStockSearch } from "@/lib/yahoo-finance/fetchStockSearch"
 import type { Interval, Quote } from "@/types/yahoo-finance"
+import { getDisplayMetrics } from "@/lib/markets/displayMetrics"
 import Link from "next/link"
 import { Suspense } from "react"
 
@@ -94,9 +95,12 @@ export default async function Home({
 
   const marketQuotes: Quote[] = await fetchMarketSnapshot(instruments)
 
-  const marketSentiment = getMarketSentiment(
-    marketQuotes[0]?.regularMarketChangePercent ?? undefined
-  )
+  const firstQuote = marketQuotes[0]
+  const firstChangePercent =
+    firstQuote?.displayChangePercent ??
+    (firstQuote ? getDisplayMetrics(firstQuote).changePercent ?? undefined : undefined)
+
+  const marketSentiment = getMarketSentiment(firstChangePercent)
 
   const sentimentColor =
     marketSentiment === "bullish"

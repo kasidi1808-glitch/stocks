@@ -57,6 +57,8 @@ export type Interval =
   | "1mo"
   | "3mo";
 
+export type QuoteDisplaySource = "regular" | "pre" | "post"
+
 export type Quote = {
   symbol: string
   shortName?: string | null
@@ -87,6 +89,15 @@ export type Quote = {
   preMarketChangePercent?: number | null
   preMarketTime?: number | null
   hasPrePostMarketData?: boolean
+  /**
+   * Derived fields that represent the value currently highlighted on Yahoo Finance.
+   * These are populated by the display metrics helper so downstream UI can render
+   * consistent numbers without re-computing them.
+   */
+  displayPrice?: number | null
+  displayChange?: number | null
+  displayChangePercent?: number | null
+  displaySource?: QuoteDisplaySource
 }
 
 type QuoteSummarySection = Record<string, number | string | null | undefined>

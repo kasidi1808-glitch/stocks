@@ -8,6 +8,8 @@ import {
 } from "@/data/offlineQuotes"
 
 import { fetchFmpQuote } from "@/lib/fmp/quotes"
+import { isFmpApiAvailable } from "@/lib/fmp/client"
+import { applyDisplayMetrics } from "@/lib/markets/displayMetrics"
 
 import yahooFinance from "yahoo-finance2"
 
@@ -92,7 +94,7 @@ function asFiniteNumber(value: unknown): number | null {
     return value
   }
 
-  return emptyQuote
+  return applyDisplayMetrics(emptyQuote)
 }
 
 export function normalizeYahooQuote(response: any): Quote {
@@ -191,7 +193,7 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
             return null
           }
 
-          const normalized = normalizeYahooQuote(result)
+          const normalized = applyDisplayMetrics(normalizeYahooQuote(result))
 
           if (!normalized.symbol) {
             return null
@@ -222,6 +224,7 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
       symbols: normalizedSymbols.join(","),
       region: "US",
       lang: "en-US",
+      includePrePost: true,
     })
 
     const results = Array.isArray(data.quoteResponse?.result)
@@ -230,7 +233,7 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
 
     const quotes = new Map(
       results
-        .map((item) => normalizeYahooQuote(item))
+        .map((item) => applyDisplayMetrics(normalizeYahooQuote(item)))
         .filter((quote) => quote.symbol)
         .map((quote) => [quote.symbol, quote] as const)
     )
@@ -268,12 +271,14 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
   try {
     const directYahooQuote = await yahooFinance.quote(
       normalizedTicker,
-      {},
+      undefined,
       { validateResult: false }
     )
 
     if (directYahooQuote) {
-      const normalizedQuote = normalizeYahooQuote(directYahooQuote)
+      const normalizedQuote = applyDisplayMetrics(
+        normalizeYahooQuote(directYahooQuote)
+      )
 
       if (normalizedQuote.symbol) {
         return normalizedQuote
@@ -287,7 +292,7 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     try {
       const fmpQuote = await fetchFmpQuote(normalizedTicker)
       if (fmpQuote) {
-        return fmpQuote
+        return applyDisplayMetrics(fmpQuote)
       }
     } catch (error) {
       console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
@@ -313,7 +318,7 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
 
   const offlineQuote = getOfflineQuote(normalizedTicker)
   if (offlineQuote) {
-    return offlineQuote
+    return applyDisplayMetrics(offlineQuote)
   }
 
   return createEmptyQuote(normalizedTicker)
@@ -347,7 +352,10 @@ export async function loadQuotesForSymbols(
         const offlineQuote = getOfflineQuote(ticker)
 
         if (offlineQuote) {
-          return [normalizeTicker(offlineQuote.symbol) || ticker, offlineQuote] as const
+          return [
+            normalizeTicker(offlineQuote.symbol) || ticker,
+            applyDisplayMetrics(offlineQuote),
+          ] as const
         }
 
         return null

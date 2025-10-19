@@ -2,60 +2,25 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
-import { getDisplayMetrics } from "@/lib/markets/displayMetrics"
+import {
+  getDisplayMetrics,
+  type QuoteDisplayMetrics,
+} from "@/lib/markets/displayMetrics"
 
-const NA_VALUE = "N/A"
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
-  }
-
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value)
-
-    if (Number.isFinite(parsed)) {
-      return parsed
+function resolveDisplayMetrics(quote: Quote): QuoteDisplayMetrics {
+  if (
+    Object.prototype.hasOwnProperty.call(quote, "displayPrice") &&
+    quote.displayPrice !== undefined
+  ) {
+    return {
+      price: quote.displayPrice ?? null,
+      change: quote.displayChange ?? null,
+      changePercent: quote.displayChangePercent ?? null,
+      source: quote.displaySource ?? "regular",
     }
   }
 
-  return null
-}
-
-function formatPrice(value: unknown): string {
-  const numeric = toNumber(value)
-
-  if (numeric === null) {
-    return NA_VALUE
-  }
-
-  const fractionDigits = Math.abs(numeric) >= 1 ? 2 : 4
-
-  return numeric.toFixed(fractionDigits)
-}
-
-function formatLargeNumber(value: unknown): string {
-  const numeric = toNumber(value)
-
-  if (numeric === null) {
-    return NA_VALUE
-  }
-
-  const absValue = Math.abs(numeric)
-
-  if (absValue >= 1_000_000_000_000) {
-    return `${(numeric / 1_000_000_000_000).toFixed(2)}T`
-  }
-
-  if (absValue >= 1_000_000_000) {
-    return `${(numeric / 1_000_000_000).toFixed(2)}B`
-  }
-
-  if (absValue >= 1_000_000) {
-    return `${(numeric / 1_000_000).toFixed(2)}M`
-  }
-
-  return numeric.toLocaleString()
+  return getDisplayMetrics(quote)
 }
 
 export const columns: ColumnDef<Quote>[] = [
@@ -93,7 +58,7 @@ export const columns: ColumnDef<Quote>[] = [
     header: () => <div className="text-right">Price</div>,
     cell: (props) => {
       const { row } = props
-      const metrics = getDisplayMetrics(row.original)
+      const metrics = resolveDisplayMetrics(row.original)
       const { price, source } = metrics
 
       if (typeof price === "number") {
@@ -117,7 +82,7 @@ export const columns: ColumnDef<Quote>[] = [
     header: () => <div className="text-right">$ Change</div>,
     cell: (props) => {
       const { row } = props
-      const { change } = getDisplayMetrics(row.original)
+      const { change } = resolveDisplayMetrics(row.original)
 
       if (typeof change === "number") {
         return (
@@ -141,7 +106,7 @@ export const columns: ColumnDef<Quote>[] = [
     header: () => <div className="text-right">% Change</div>,
     cell: (props) => {
       const { row } = props
-      const { changePercent } = getDisplayMetrics(row.original)
+      const { changePercent } = resolveDisplayMetrics(row.original)
 
       if (changePercent === null) {
         return (

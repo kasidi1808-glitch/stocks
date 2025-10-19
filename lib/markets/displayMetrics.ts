@@ -1,6 +1,4 @@
-import type { Quote } from "@/types/yahoo-finance"
-
-export type QuoteDisplaySource = "regular" | "pre" | "post"
+import type { Quote, QuoteDisplaySource } from "@/types/yahoo-finance"
 
 export type QuoteDisplayMetrics = {
   price: number | null
@@ -170,5 +168,17 @@ export function getDisplayMetrics(quote: Quote): QuoteDisplayMetrics {
     change: null,
     changePercent: null,
     source: "regular",
+  }
+}
+
+export function applyDisplayMetrics(quote: Quote): Quote {
+  const metrics = getDisplayMetrics(quote)
+
+  return {
+    ...quote,
+    displayPrice: metrics.price,
+    displayChange: metrics.change,
+    displayChangePercent: metrics.changePercent,
+    displaySource: metrics.source,
   }
 }

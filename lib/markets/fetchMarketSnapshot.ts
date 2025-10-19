@@ -4,6 +4,7 @@ import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
 
 import { getOfflineQuote } from "@/data/offlineQuotes"
 import { loadQuotesForSymbols, normalizeTicker } from "../yahoo-finance/fetchQuote"
+import { applyDisplayMetrics } from "./displayMetrics"
 
 import type { MarketInstrument } from "./types"
 
@@ -23,7 +24,7 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
   const offlineQuote = getOfflineQuote(fallbackSymbol)
 
   if (offlineQuote) {
-    return applyInstrumentOverrides(offlineQuote, instrument)
+    return applyDisplayMetrics(applyInstrumentOverrides(offlineQuote, instrument))
   }
 
   const placeholderQuote: Quote = {
@@ -58,7 +59,7 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
     hasPrePostMarketData: false,
   }
 
-  return applyInstrumentOverrides(placeholderQuote, instrument)
+  return applyDisplayMetrics(applyInstrumentOverrides(placeholderQuote, instrument))
 }
 
 function applyInstrumentOverrides(
@@ -109,7 +110,9 @@ export async function fetchMarketSnapshot(
       quotesBySymbol.get(lookupSymbol) ??
       (normalizedSymbol ? quotesBySymbol.get(instrument.symbol) : undefined)
 
-    const summaryHydrated = mergeQuoteWithSummary(baseQuote, summary)
+    if (quote) {
+      return applyDisplayMetrics(applyInstrumentOverrides(quote, instrument))
+    }
 
     return hydrateQuoteFromOfflineData(instrument.symbol, summaryHydrated)
   })

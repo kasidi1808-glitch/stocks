@@ -1,8 +1,27 @@
 import { fetchChartData } from "@/lib/yahoo-finance/fetchChartData"
-import type { Interval, Range } from "@/types/yahoo-finance"
+import type { Interval, Quote, Range } from "@/types/yahoo-finance"
 import AreaClosedChart from "./AreaClosedChart"
 import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
-import { getDisplayMetrics } from "@/lib/markets/displayMetrics"
+import {
+  getDisplayMetrics,
+  type QuoteDisplayMetrics,
+} from "@/lib/markets/displayMetrics"
+
+function resolveDisplayMetrics(quote: Quote): QuoteDisplayMetrics {
+  if (
+    Object.prototype.hasOwnProperty.call(quote, "displayPrice") &&
+    quote.displayPrice !== undefined
+  ) {
+    return {
+      price: quote.displayPrice ?? null,
+      change: quote.displayChange ?? null,
+      changePercent: quote.displayChangePercent ?? null,
+      source: quote.displaySource ?? "regular",
+    }
+  }
+
+  return getDisplayMetrics(quote)
+}
 
 export default async function MarketsChart({
   ticker,
@@ -20,7 +39,7 @@ export default async function MarketsChart({
     fetchQuote(ticker),
   ])
 
-  const displayMetrics = getDisplayMetrics(quote)
+  const displayMetrics = resolveDisplayMetrics(quote)
 
   type ChartPoint = {
     date: Date | string | number
