@@ -1,6 +1,8 @@
 import { unstable_noStore as noStore } from "next/cache"
 
-import type { Quote } from "@/types/yahoo-finance"
+import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
+
+import { getOfflineQuote } from "@/data/offlineQuotes"
 
 import { getOfflineQuote } from "@/data/offlineQuotes"
 import { loadQuotesForSymbols, normalizeTicker } from "../yahoo-finance/fetchQuote"
@@ -76,6 +78,30 @@ function applyInstrumentOverrides(
   }
 }
 
+async function loadSummariesForSymbols(
+  symbols: string[]
+): Promise<Map<string, QuoteSummary | null>> {
+  if (symbols.length === 0) {
+    return new Map()
+  }
+
+  const uniqueSymbols = Array.from(new Set(symbols))
+
+  const entries = await Promise.all(
+    uniqueSymbols.map(async (symbol): Promise<[string, QuoteSummary | null]> => {
+      try {
+        const summary = await loadQuoteSummary(symbol)
+        return [symbol, summary]
+      } catch (error) {
+        console.warn(`Failed to load quote summary for ${symbol}`, error)
+        return [symbol, null]
+      }
+    })
+  )
+
+  return new Map(entries)
+}
+
 export async function fetchMarketSnapshot(
   instruments: MarketInstrument[]
 ): Promise<Quote[]> {
@@ -91,10 +117,8 @@ export async function fetchMarketSnapshot(
       quotesBySymbol.get(lookupSymbol) ??
       (normalizedSymbol ? quotesBySymbol.get(instrument.symbol) : undefined)
 
-    if (quote) {
-      return applyInstrumentOverrides(quote, instrument)
-    }
+    const summaryHydrated = mergeQuoteWithSummary(baseQuote, summary)
 
-    return createPlaceholderQuote(instrument)
+    return hydrateQuoteFromOfflineData(instrument.symbol, summaryHydrated)
   })
 }
