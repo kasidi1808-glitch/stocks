@@ -2,9 +2,6 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import { fetchFmpQuote } from "@/lib/fmp/quotes"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
-
 import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 
@@ -173,17 +170,6 @@ export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
   const yahooQuote = yahooQuotes.get(tickerSymbol)
   if (yahooQuote) {
     return yahooQuote
-  }
-
-  if (isFmpApiAvailable()) {
-    try {
-      const fmpQuote = await fetchFmpQuote(tickerSymbol)
-      if (fmpQuote) {
-        return fmpQuote
-      }
-    } catch (error) {
-      console.warn(`FMP quote lookup failed for ${tickerSymbol}`, error)
-    }
   }
 
   return createEmptyQuote(tickerSymbol)
