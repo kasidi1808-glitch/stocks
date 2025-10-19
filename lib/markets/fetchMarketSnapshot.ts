@@ -3,10 +3,17 @@ import { unstable_noStore as noStore } from "next/cache"
 import type { Quote } from "@/types/yahoo-finance"
 
 import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
+import { getOfflineQuote } from "@/data/offlineQuotes"
 
 import type { MarketInstrument } from "./types"
 
 function createPlaceholderQuote(instrument: MarketInstrument): Quote {
+  const offlineQuote = getOfflineQuote(instrument.symbol)
+
+  if (offlineQuote) {
+    return applyInstrumentOverrides(offlineQuote, instrument)
+  }
+
   return {
     symbol: instrument.symbol,
     shortName: instrument.shortName,

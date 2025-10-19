@@ -2,17 +2,15 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type {
   PredefinedScreenerModules,
-  Quote,
   ScreenerQuote,
   ScreenerResult,
 } from "@/types/yahoo-finance"
 
-import { OFFLINE_SYMBOLS } from "@/data/offlineQuotes"
+import { getOfflineQuote } from "@/data/offlineQuotes"
+
 import { yahooFinanceFetch } from "./client"
-import { loadQuotesForSymbols } from "./fetchQuote"
 
 const ITEMS_PER_PAGE = 40
-const MAX_PAGES = 25
 
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -70,89 +68,68 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
   }
 }
 
-const FALLBACK_SYMBOLS = OFFLINE_SYMBOLS
+const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const
 
-function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
-  return {
-    symbol,
-    shortName: symbol,
-    regularMarketPrice: null,
-    regularMarketChange: null,
-    regularMarketChangePercent: null,
-    regularMarketVolume: null,
-    averageDailyVolume3Month: null,
-    marketCap: null,
-    epsTrailingTwelveMonths: null,
-    trailingPE: null,
-  }
-}
+function toScreenerQuote(symbol: string): ScreenerQuote {
+  const offlineQuote = getOfflineQuote(symbol)
 
-function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuote {
-  if (!quote) {
-    return createEmptyScreenerQuote(symbol)
+  if (!offlineQuote) {
+    return {
+      symbol,
+      shortName: symbol,
+      regularMarketPrice: null,
+      regularMarketChange: null,
+      regularMarketChangePercent: null,
+      regularMarketVolume: null,
+      averageDailyVolume3Month: null,
+      marketCap: null,
+      epsTrailingTwelveMonths: null,
+      trailingPE: null,
+    }
   }
 
-  const regularMarketPrice = toNumber(quote.regularMarketPrice)
-  const epsTrailingTwelveMonths = toNumber(quote.trailingEps)
+  const regularMarketPrice = toNumber(offlineQuote.regularMarketPrice)
+  const epsTrailingTwelveMonths = toNumber(offlineQuote.trailingEps)
   const trailingPE =
-    toNumber(quote.trailingPE) ??
+    toNumber(offlineQuote.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
   return {
-    symbol: quote.symbol ?? symbol,
-    shortName: quote.shortName ?? quote.symbol ?? symbol,
+    symbol: offlineQuote.symbol,
+    shortName: offlineQuote.shortName ?? offlineQuote.symbol,
     regularMarketPrice,
-    regularMarketChange: toNumber(quote.regularMarketChange),
-    regularMarketChangePercent: toNumber(quote.regularMarketChangePercent),
-    regularMarketVolume: toNumber(quote.regularMarketVolume),
-    averageDailyVolume3Month: toNumber(quote.averageDailyVolume3Month),
-    marketCap: toNumber(quote.marketCap),
+    regularMarketChange: toNumber(offlineQuote.regularMarketChange),
+    regularMarketChangePercent: toNumber(
+      offlineQuote.regularMarketChangePercent
+    ),
+    regularMarketVolume: toNumber(offlineQuote.regularMarketVolume),
+    averageDailyVolume3Month: toNumber(
+      offlineQuote.averageDailyVolume3Month
+    ),
+    marketCap: toNumber(offlineQuote.marketCap),
     epsTrailingTwelveMonths,
     trailingPE,
   }
 }
 
-async function createFallbackResult(
+function createFallbackResult(
   query: string,
   limit: number,
   description: string
-): Promise<ScreenerResult> {
-  const fallbackSymbols = FALLBACK_SYMBOLS.slice(0, limit)
+): ScreenerResult {
+  const quotes = FALLBACK_SYMBOLS.slice(0, limit).map((symbol) =>
+    toScreenerQuote(symbol)
+  )
 
-  try {
-    const quotesBySymbol = await loadQuotesForSymbols(fallbackSymbols)
-
-    const quotes = fallbackSymbols.map((symbol) =>
-      quoteToScreenerQuote(symbol, quotesBySymbol.get(symbol) ?? null)
-    )
-
-    return {
-      id: query,
-      title: "Live screener data temporarily unavailable",
-      description,
-      canonicalName: query,
-      quotes,
-      start: 0,
-      count: quotes.length,
-      total: quotes.length,
-    }
-  } catch (error) {
-    console.warn("Failed to hydrate live fallback screener quotes", error)
-
-    const quotes = fallbackSymbols.map((symbol) =>
-      createEmptyScreenerQuote(symbol)
-    )
-
-    return {
-      id: query,
-      title: "Market data unavailable",
-      description,
-      canonicalName: query,
-      quotes,
-      start: 0,
-      count: quotes.length,
-      total: quotes.length,
-    }
+  return {
+    id: query,
+    title: "Market data unavailable",
+    description,
+    canonicalName: query,
+    quotes,
+    start: 0,
+    count: quotes.length,
+    total: quotes.length,
   }
 }
 
@@ -171,12 +148,14 @@ type ScreenerApiResponse = {
   }
 }
 
-function buildScreenerResult(
+function normalizeScreenerResult(
   response: any,
   query: string,
-  quotes: ScreenerQuote[],
-  total: number
+  limit: number
 ): ScreenerResult {
+  const rawQuotes = Array.isArray(response?.quotes) ? response.quotes : []
+  const quotes = rawQuotes.map(normalizeScreenerQuote).slice(0, limit)
+
   return {
     id: typeof response?.id === "string" ? response.id : query,
     title:
@@ -190,130 +169,44 @@ function buildScreenerResult(
         ? response.canonicalName
         : query,
     quotes,
-    start: 0,
-    count: quotes.length,
-    total,
+    start: Number.isFinite(response?.start) ? response.start : 0,
+    count: Number.isFinite(response?.count) ? response.count : quotes.length,
+    total: Number.isFinite(response?.total) ? response.total : quotes.length,
   }
 }
 
-async function fetchScreenerPage(
-  query: string,
-  start: number,
-  limit: number
-): Promise<any> {
-  const data = await yahooFinanceFetch<ScreenerApiResponse>(
-    "v1/finance/screener/predefined/saved",
-    {
-      scrIds: query as PredefinedScreenerModules,
-      count: limit,
-      start,
-      region: "US",
-      lang: "en-US",
-    }
-  )
-
-  const response = data.finance?.result?.[0]
-
-  if (!response) {
-    throw new Error("No screener results returned")
-  }
-
-  return response
-}
-
-export const fetchScreenerResults = async (
+export async function fetchScreenerStocks(
   query: string,
   count?: number
-): Promise<ScreenerResult> => {
+): Promise<ScreenerResult> {
   noStore()
 
-  const desiredTotal = count ?? Number.POSITIVE_INFINITY
+  const limit = count ?? ITEMS_PER_PAGE
 
   try {
-    const quotes: ScreenerQuote[] = []
-    const seenSymbols = new Set<string>()
-
-    let pageIndex = 0
-    let start = 0
-    let totalAvailable: number | null = null
-    let firstResponse: any | null = null
-
-    while (
-      quotes.length < desiredTotal &&
-      pageIndex < MAX_PAGES &&
-      (totalAvailable === null || start < totalAvailable)
-    ) {
-      const remaining =
-        desiredTotal === Number.POSITIVE_INFINITY
-          ? ITEMS_PER_PAGE
-          : Math.max(
-              0,
-              Math.min(ITEMS_PER_PAGE, desiredTotal - quotes.length)
-            )
-
-      if (remaining === 0) {
-        break
+    const data = await yahooFinanceFetch<ScreenerApiResponse>(
+      "v1/finance/screener/predefined/saved",
+      {
+        scrIds: query as PredefinedScreenerModules,
+        count: limit,
+        region: "US",
+        lang: "en-US",
       }
-
-      const response = await fetchScreenerPage(query, start, remaining)
-
-      if (!firstResponse) {
-        firstResponse = response
-      }
-
-      const rawQuotes = Array.isArray(response?.quotes) ? response.quotes : []
-      const normalizedQuotes = rawQuotes.map(normalizeScreenerQuote)
-
-      for (const quote of normalizedQuotes) {
-        if (!quote.symbol || seenSymbols.has(quote.symbol)) {
-          continue
-        }
-
-        quotes.push(quote)
-        seenSymbols.add(quote.symbol)
-
-        if (quotes.length >= desiredTotal) {
-          break
-        }
-      }
-
-      const received = normalizedQuotes.length
-
-      if (Number.isFinite(response?.total)) {
-        totalAvailable = response.total as number
-      } else if (totalAvailable === null) {
-        totalAvailable = received
-      }
-
-      if (received <= 0) {
-        break
-      }
-
-      start += received
-      pageIndex += 1
-    }
-
-    if (!firstResponse || quotes.length === 0) {
-      throw new Error("No screener quotes returned")
-    }
-
-    const total = Math.max(
-      quotes.length,
-      totalAvailable !== null ? totalAvailable : quotes.length
     )
 
-    return buildScreenerResult(firstResponse, query, quotes, total)
+    const response = data.finance?.result?.[0]
+
+    if (!response) {
+      throw new Error("No screener results returned")
+    }
+
+    return normalizeScreenerResult(response, query, limit)
   } catch (error) {
     console.warn("Failed to fetch screener stocks", error)
 
-    return await createFallbackResult(
+    return createFallbackResult(
       query,
-      Math.min(
-        typeof desiredTotal === "number" && Number.isFinite(desiredTotal)
-          ? desiredTotal
-          : FALLBACK_SYMBOLS.length,
-        FALLBACK_SYMBOLS.length
-      ),
+      limit,
       "Live screener results are currently unavailable. Showing placeholder symbols instead."
     )
   }
