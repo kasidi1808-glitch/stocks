@@ -1,52 +1,14 @@
 import { unstable_noStore as noStore } from "next/cache"
 
-import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
+import type { QuoteSummary } from "@/types/yahoo-finance"
 
 import { fetchQuote } from "./fetchQuote"
 import { yahooFinanceFetch } from "./client"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
 
 function createEmptyQuoteSummary(): QuoteSummary {
   return {
     summaryDetail: {},
     defaultKeyStatistics: {},
-  }
-}
-
-function pruneSection<T extends Record<string, unknown>>(section: T): T | undefined {
-  const entries = Object.entries(section).filter(([, value]) => value != null)
-
-  if (entries.length === 0) {
-    return undefined
-  }
-
-  return Object.fromEntries(entries) as T
-}
-
-function buildSummaryFromQuote(quote: Quote): QuoteSummary | null {
-  const summaryDetail = pruneSection({
-    open: quote.regularMarketOpen ?? null,
-    dayHigh: quote.regularMarketDayHigh ?? null,
-    dayLow: quote.regularMarketDayLow ?? null,
-    volume: quote.regularMarketVolume ?? null,
-    trailingPE: quote.trailingPE ?? null,
-    marketCap: quote.marketCap ?? null,
-    fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh ?? null,
-    fiftyTwoWeekLow: quote.fiftyTwoWeekLow ?? null,
-    averageVolume: quote.averageDailyVolume3Month ?? null,
-  })
-
-  const defaultKeyStatistics = pruneSection({
-    trailingEps: quote.trailingEps ?? null,
-  })
-
-  if (!summaryDetail && !defaultKeyStatistics) {
-    return null
-  }
-
-  return {
-    summaryDetail,
-    defaultKeyStatistics,
   }
 }
 
@@ -123,11 +85,6 @@ export const loadQuoteSummary = async (
   const yahooQuoteSummary = await fetchQuoteSummaryFromYahoo(ticker)
   if (yahooQuoteSummary) {
     return yahooQuoteSummary
-  }
-
-  const fmpQuoteSummary = await fetchQuoteSummaryFromFmp(ticker)
-  if (fmpQuoteSummary) {
-    return fmpQuoteSummary
   }
 
   try {
