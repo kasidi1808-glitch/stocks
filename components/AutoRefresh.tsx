@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 
 interface AutoRefreshProps {
@@ -20,6 +20,7 @@ export default function AutoRefresh({
   refreshOnFocus = true,
 }: AutoRefreshProps) {
   const router = useRouter()
+  const hasRefreshedRef = useRef(false)
 
   useEffect(() => {
     let isActive = true
@@ -35,6 +36,11 @@ export default function AutoRefresh({
       }
 
       router.refresh()
+    }
+
+    if (!hasRefreshedRef.current) {
+      hasRefreshedRef.current = true
+      refresh()
     }
 
     const intervalId = window.setInterval(refresh, normalizedInterval)
