@@ -23,11 +23,21 @@ function toNumber(value: unknown): number | null {
   return null
 }
 
+function formatNumber(value: unknown, fractionDigits = 2): string {
+  const numeric = toNumber(value)
+
+  if (numeric === null) {
+    return "—"
+  }
+
+  return numeric.toFixed(fractionDigits)
+}
+
 function formatVolume(value: unknown): string {
   const numeric = toNumber(value)
 
   if (numeric === null) {
-    return "N/A"
+    return "—"
   }
 
   if (numeric >= 1_000_000_000_000) {
@@ -66,20 +76,7 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
     enableHiding: false,
   },
   {
-    id: COMPANY_COLUMN_ID,
-    accessorFn: (row) => {
-      const symbol = toNonEmptyString(row.symbol)
-      const longName = toNonEmptyString(row.longName)
-      const shortName = toNonEmptyString(row.shortName)
-
-      return (
-        resolveCompanyName(symbol, longName, shortName) ??
-        longName ??
-        shortName ??
-        symbol ??
-        row.symbol
-      )
-    },
+    accessorKey: "shortName",
     meta: "Company",
     header: "Company",
   },
@@ -103,17 +100,14 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
         row.original.epsTrailingTwelveMonths
       )
 
-      if (
-        regularMarketPrice === null ||
-        epsTrailingTwelveMonths === null ||
-        epsTrailingTwelveMonths === 0
-      ) {
-        return <div className="text-right">N/A</div>
+      if (price === null || eps === null || eps <= 0) {
+        return <div className="text-right text-muted-foreground">—</div>
       }
 
-      const pe = regularMarketPrice / epsTrailingTwelveMonths
-      if (!Number.isFinite(pe) || pe < 0) {
-        return <div className="text-right">N/A</div>
+      const pe = price / eps
+
+      if (!Number.isFinite(pe) || pe <= 0) {
+        return <div className="text-right text-muted-foreground">—</div>
       }
 
       return <div className="text-right">{pe.toFixed(2)}</div>
@@ -127,11 +121,16 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
       const { row } = props
       const price = toNumber(row.getValue("regularMarketPrice"))
 
-      if (price === null) {
-        return <div className="text-right">N/A</div>
-      }
-
-      return <div className="text-right">{price.toFixed(2)}</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            formattedPrice === "—" && "text-muted-foreground"
+          )}
+        >
+          {formattedPrice}
+        </div>
+      )
     },
   },
   {
@@ -144,9 +143,7 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
 
       if (marketChange === null) {
         return (
-          <div className="flex justify-end">
-            <div className="text-right text-muted-foreground">N/A</div>
-          </div>
+          <div className="text-right text-muted-foreground">—</div>
         )
       }
 
@@ -177,6 +174,17 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
         row.getValue("regularMarketChangePercent")
       )
 
+      if (marketChangePercent === null) {
+        return (
+          <div className="flex justify-end">
+            <div className="w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right text-muted-foreground">
+              —
+            </div>
+          </div>
+        )
+      }
+
+      const sign = marketChangePercent > 0 ? "+" : ""
       return (
         <div className="flex justify-end">
           <div
@@ -206,7 +214,16 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
       const { row } = props
       const formattedVolume = formatVolume(row.getValue("regularMarketVolume"))
 
-      return <div className="text-right">{formattedVolume}</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            formattedVolume === "—" && "text-muted-foreground"
+          )}
+        >
+          {formattedVolume}
+        </div>
+      )
     },
   },
   {
@@ -219,7 +236,16 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
         row.getValue("averageDailyVolume3Month")
       )
 
-      return <div className="text-right">{formattedVolume}</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            formattedVolume === "—" && "text-muted-foreground"
+          )}
+        >
+          {formattedVolume}
+        </div>
+      )
     },
   },
   {
@@ -230,7 +256,16 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
       const { row } = props
       const formattedMarketCap = formatVolume(row.getValue("marketCap"))
 
-      return <div className="text-right">{formattedMarketCap}</div>
+      return (
+        <div
+          className={cn(
+            "text-right",
+            formattedMarketCap === "—" && "text-muted-foreground"
+          )}
+        >
+          {formattedMarketCap}
+        </div>
+      )
     },
   },
 ]
