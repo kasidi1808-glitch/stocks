@@ -1,11 +1,23 @@
 import { unstable_noStore as noStore } from "next/cache"
 
-import type { Quote } from "@/types/yahoo-finance"
+import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
+
+import { getOfflineQuote } from "@/data/offlineQuotes"
 
 import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
 import { getOfflineQuote } from "@/data/offlineQuotes"
 
 import type { MarketInstrument } from "./types"
+
+function normalizeString(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  return trimmed ? trimmed : null
+}
 
 function createPlaceholderQuote(instrument: MarketInstrument): Quote {
   const offlineQuote = getOfflineQuote(instrument.symbol)
@@ -42,17 +54,81 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
     preMarketChangePercent: null,
     hasPrePostMarketData: false,
   }
+
+  return applyInstrumentOverrides(
+    {
+      symbol: instrument.symbol,
+      shortName: instrument.shortName ?? instrument.symbol,
+      regularMarketPrice: null,
+      regularMarketChange: null,
+      regularMarketChangePercent: null,
+      regularMarketDayLow: null,
+      regularMarketDayHigh: null,
+      fiftyTwoWeekLow: null,
+      fiftyTwoWeekHigh: null,
+      marketCap: null,
+      regularMarketVolume: null,
+      averageDailyVolume3Month: null,
+      regularMarketOpen: null,
+      regularMarketPreviousClose: null,
+      trailingEps: null,
+      trailingPE: null,
+      fullExchangeName: null,
+      currency: null,
+      regularMarketTime: null,
+      postMarketPrice: null,
+      postMarketChange: null,
+      postMarketChangePercent: null,
+      preMarketPrice: null,
+      preMarketChange: null,
+      preMarketChangePercent: null,
+      hasPrePostMarketData: false,
+    },
+    instrument
+  )
 }
 
 function applyInstrumentOverrides(
   quote: Quote,
   instrument: MarketInstrument
 ): Quote {
+  const requestSymbol = normalizeString(instrument.symbol)
+  const quoteSymbol = normalizeString(quote.symbol)
+  const resolvedSymbol = quoteSymbol ?? requestSymbol ?? quote.symbol ?? instrument.symbol
+
+  const quoteShortName = normalizeString(quote.shortName)
+  const instrumentName = normalizeString(instrument.shortName)
+
   return {
     ...quote,
-    symbol: instrument.symbol,
-    shortName: instrument.shortName ?? quote.shortName ?? instrument.symbol,
+    symbol: resolvedSymbol ?? instrument.symbol,
+    shortName:
+      quoteShortName ?? instrumentName ?? resolvedSymbol ?? quote.shortName ?? instrument.symbol,
   }
+}
+
+async function loadSummariesForSymbols(
+  symbols: string[]
+): Promise<Map<string, QuoteSummary | null>> {
+  if (symbols.length === 0) {
+    return new Map()
+  }
+
+  const uniqueSymbols = Array.from(new Set(symbols))
+
+  const entries = await Promise.all(
+    uniqueSymbols.map(async (symbol): Promise<[string, QuoteSummary | null]> => {
+      try {
+        const summary = await loadQuoteSummary(symbol)
+        return [symbol, summary]
+      } catch (error) {
+        console.warn(`Failed to load quote summary for ${symbol}`, error)
+        return [symbol, null]
+      }
+    })
+  )
+
+  return new Map(entries)
 }
 
 export async function fetchMarketSnapshot(
@@ -61,15 +137,21 @@ export async function fetchMarketSnapshot(
   noStore()
 
   const symbols = instruments.map((instrument) => instrument.symbol)
-  const quotesBySymbol = await loadQuotesForSymbols(symbols)
+  const [quotesBySymbol, summariesBySymbol] = await Promise.all([
+    loadQuotesForSymbols(symbols),
+    loadSummariesForSymbols(symbols),
+  ])
 
   return instruments.map((instrument) => {
     const quote = quotesBySymbol.get(instrument.symbol)
+    const summary = summariesBySymbol.get(instrument.symbol) ?? null
 
-    if (quote) {
-      return applyInstrumentOverrides(quote, instrument)
-    }
+    const baseQuote = quote
+      ? applyInstrumentOverrides(quote, instrument)
+      : createPlaceholderQuote(instrument)
 
-    return createPlaceholderQuote(instrument)
+    const summaryHydrated = mergeQuoteWithSummary(baseQuote, summary)
+
+    return hydrateQuoteFromOfflineData(instrument.symbol, summaryHydrated)
   })
 }
