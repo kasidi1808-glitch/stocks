@@ -3,6 +3,7 @@
 import { CellContext, ColumnDef } from "@tanstack/react-table"
 
 import { cn } from "@/lib/utils"
+import { resolveCompanyName } from "@/lib/company-names"
 import type { ScreenerQuote } from "@/types/yahoo-finance"
 import {
   type QuoteDisplayMetrics,
@@ -128,8 +129,10 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
         return <div className="text-right">{trailingPe.toFixed(2)}</div>
       }
 
-      const price = toNumber(row.original.regularMarketPrice)
-      const eps = toNumber(row.original.epsTrailingTwelveMonths)
+      const regularMarketPrice = toNumber(row.original.regularMarketPrice)
+      const epsTrailingTwelveMonths = toNumber(
+        row.original.epsTrailingTwelveMonths
+      )
 
       if (price === null || eps === null || eps <= 0) {
         return <div className="text-right text-muted-foreground">—</div>
@@ -183,7 +186,6 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
         )
       }
 
-      const sign = marketChange > 0 ? "+" : ""
       return (
         <div className="flex justify-end">
           <div
@@ -191,13 +193,11 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
               "text-right",
               marketChange > 0
                 ? "text-green-800 dark:text-green-400"
-                : marketChange < 0
-                  ? "text-red-800 dark:text-red-500"
-                  : "text-muted-foreground"
+                : "text-red-800 dark:text-red-500"
             )}
           >
-            {sign}
-            {Math.abs(marketChange).toFixed(2)}
+            {marketChange > 0 ? "+" : ""}
+            {marketChange.toFixed(2)}
           </div>
         </div>
       )
@@ -229,15 +229,17 @@ export const columns: ColumnDef<ScreenerQuote>[] = [
           <div
             className={cn(
               "w-[4rem] min-w-fit rounded-md px-2 py-0.5 text-right",
-              marketChangePercent > 0
-                ? "bg-green-300 text-green-800 dark:bg-green-950 dark:text-green-400"
-                : marketChangePercent < 0
-                  ? "bg-red-300 text-red-800 dark:bg-red-950 dark:text-red-500"
-                  : "bg-muted text-muted-foreground"
+              marketChangePercent === null
+                ? "bg-muted text-muted-foreground"
+                : marketChangePercent > 0
+                  ? "bg-green-300 text-green-800 dark:bg-green-950 dark:text-green-400"
+                  : "bg-red-300 text-red-800 dark:bg-red-950 dark:text-red-500"
             )}
           >
-            {sign}
-            {Math.abs(marketChangePercent).toFixed(2)}
+            {marketChangePercent !== null && marketChangePercent > 0 ? "+" : ""}
+            {marketChangePercent !== null
+              ? marketChangePercent.toFixed(2)
+              : "N/A"}
           </div>
         </div>
       )
