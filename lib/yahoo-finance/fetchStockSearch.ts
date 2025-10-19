@@ -4,9 +4,20 @@ import type {
   SearchNews,
   SearchResult,
 } from "@/node_modules/yahoo-finance2/dist/esm/src/modules/search"
-import { fetchFmpNews } from "@/lib/fmp/news"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
-import type { StockNewsResult } from "@/lib/fmp/news"
+
+type StockNewsArticle = {
+  id: string
+  uuid: string
+  title: string
+  link: string
+  publisher?: string
+  providerPublishTime?: number | Date
+  published_at?: string
+}
+
+type StockNewsResult = {
+  news: StockNewsArticle[]
+}
 
 export async function fetchStockSearch(
   ticker: string,
@@ -34,20 +45,28 @@ export async function fetchStockSearch(
   } catch (error) {
     console.log("Failed to fetch stock search", error)
 
-    if (!isFmpApiAvailable()) {
-      return { news: [] }
-    }
-
-    try {
-      return await fetchFmpNews(ticker, newsCount)
-    } catch (fallbackError) {
-      console.log("Fallback stock news fetch failed", fallbackError)
-      return { news: [] }
-    }
+    return { news: [] }
   }
 }
 
-function mapYahooNewsArticle(article: SearchNews) {
+function mapYahooNewsArticle(article: SearchNews): StockNewsArticle {
+  const publishValue = article.providerPublishTime
+
+  let publishTimestamp: number | null = null
+
+  if (publishValue instanceof Date) {
+    publishTimestamp = publishValue.getTime()
+  } else if (typeof publishValue === "number") {
+    // Yahoo Finance uses seconds since epoch for news timestamps
+    const candidate = publishValue > 10_000_000_000 ? publishValue : publishValue * 1000
+    publishTimestamp = Number.isFinite(candidate) ? candidate : null
+  }
+
+  const publishedAt =
+    publishTimestamp !== null && Number.isFinite(publishTimestamp)
+      ? new Date(publishTimestamp).toISOString()
+      : undefined
+
   return {
     id: article.uuid,
     uuid: article.uuid,
@@ -55,6 +74,6 @@ function mapYahooNewsArticle(article: SearchNews) {
     link: article.link,
     publisher: article.publisher,
     providerPublishTime: article.providerPublishTime,
-    published_at: article.providerPublishTime.toISOString(),
+    published_at: publishedAt,
   }
 }

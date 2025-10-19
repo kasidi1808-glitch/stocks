@@ -9,7 +9,7 @@ import type {
 
 import { OFFLINE_SYMBOLS } from "@/data/offlineQuotes"
 import { yahooFinanceFetch } from "./client"
-import { loadQuotesForSymbols } from "./fetchQuote"
+import { loadQuotesForSymbols, normalizeTicker } from "./fetchQuote"
 
 const ITEMS_PER_PAGE = 40
 const MAX_PAGES = 25
@@ -53,10 +53,14 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     toNumber(rawQuote?.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
+  const symbol = normalizeTicker(
+    typeof rawQuote?.symbol === "string" ? rawQuote.symbol : ""
+  )
+
   return {
-    symbol: typeof rawQuote?.symbol === "string" ? rawQuote.symbol : "",
+    symbol,
     shortName:
-      rawQuote?.shortName ?? rawQuote?.longName ?? rawQuote?.symbol ?? "",
+      rawQuote?.shortName ?? rawQuote?.longName ?? symbol ?? "",
     regularMarketPrice,
     regularMarketChange: toNumber(rawQuote?.regularMarketChange),
     regularMarketChangePercent: toNumber(
@@ -73,9 +77,11 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
 const FALLBACK_SYMBOLS = OFFLINE_SYMBOLS
 
 function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
+  const normalizedSymbol = normalizeTicker(symbol)
+
   return {
-    symbol,
-    shortName: symbol,
+    symbol: normalizedSymbol,
+    shortName: normalizedSymbol,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -88,8 +94,10 @@ function createEmptyScreenerQuote(symbol: string): ScreenerQuote {
 }
 
 function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuote {
+  const normalizedSymbol = normalizeTicker(symbol)
+
   if (!quote) {
-    return createEmptyScreenerQuote(symbol)
+    return createEmptyScreenerQuote(normalizedSymbol)
   }
 
   const regularMarketPrice = toNumber(quote.regularMarketPrice)
@@ -99,8 +107,8 @@ function quoteToScreenerQuote(symbol: string, quote: Quote | null): ScreenerQuot
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
   return {
-    symbol: quote.symbol ?? symbol,
-    shortName: quote.shortName ?? quote.symbol ?? symbol,
+    symbol: normalizeTicker(quote.symbol ?? normalizedSymbol),
+    shortName: quote.shortName ?? quote.symbol ?? normalizedSymbol,
     regularMarketPrice,
     regularMarketChange: toNumber(quote.regularMarketChange),
     regularMarketChangePercent: toNumber(quote.regularMarketChangePercent),
@@ -122,9 +130,13 @@ async function createFallbackResult(
   try {
     const quotesBySymbol = await loadQuotesForSymbols(fallbackSymbols)
 
-    const quotes = fallbackSymbols.map((symbol) =>
-      quoteToScreenerQuote(symbol, quotesBySymbol.get(symbol) ?? null)
-    )
+    const quotes = fallbackSymbols.map((symbol) => {
+      const normalizedSymbol = normalizeTicker(symbol)
+      return quoteToScreenerQuote(
+        normalizedSymbol,
+        quotesBySymbol.get(normalizedSymbol) ?? null
+      )
+    })
 
     return {
       id: query,

@@ -2,14 +2,18 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
+import { getOfflineQuote } from "@/data/offlineQuotes"
+import {
+  loadQuotesForSymbols,
+  normalizeTicker,
+} from "../yahoo-finance/fetchQuote"
 
 import type { MarketInstrument } from "./types"
 
 function createPlaceholderQuote(instrument: MarketInstrument): Quote {
   return {
-    symbol: instrument.symbol,
-    shortName: instrument.shortName,
+    symbol: normalizeTicker(instrument.symbol),
+    shortName: instrument.shortName ?? instrument.symbol,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -41,10 +45,12 @@ function applyInstrumentOverrides(
   quote: Quote,
   instrument: MarketInstrument
 ): Quote {
+  const symbol = normalizeTicker(instrument.symbol)
+
   return {
     ...quote,
-    symbol: instrument.symbol,
-    shortName: instrument.shortName ?? quote.shortName ?? instrument.symbol,
+    symbol,
+    shortName: instrument.shortName ?? quote.shortName ?? symbol,
   }
 }
 
@@ -53,16 +59,22 @@ export async function fetchMarketSnapshot(
 ): Promise<Quote[]> {
   noStore()
 
-  const symbols = instruments.map((instrument) => instrument.symbol)
+  const symbols = instruments.map((instrument) => normalizeTicker(instrument.symbol))
   const quotesBySymbol = await loadQuotesForSymbols(symbols)
 
   return instruments.map((instrument) => {
-    const quote = quotesBySymbol.get(instrument.symbol)
+    const symbol = normalizeTicker(instrument.symbol)
+    const quote = quotesBySymbol.get(symbol)
 
     if (quote) {
       return applyInstrumentOverrides(quote, instrument)
     }
 
-    return createPlaceholderQuote(instrument)
+    const offlineQuote = getOfflineQuote(symbol)
+    if (offlineQuote) {
+      return applyInstrumentOverrides(offlineQuote, instrument)
+    }
+
+    return applyInstrumentOverrides(createPlaceholderQuote(instrument), instrument)
   })
 }

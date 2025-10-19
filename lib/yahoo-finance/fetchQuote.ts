@@ -2,16 +2,24 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import { fetchFmpQuote } from "@/lib/fmp/quotes"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
-
+import { getOfflineQuote } from "@/data/offlineQuotes"
 import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 
+export function normalizeTicker(ticker: string): string {
+  if (typeof ticker !== "string") {
+    return ""
+  }
+
+  return ticker.trim().toUpperCase()
+}
+
 function createEmptyQuote(ticker: string): Quote {
+  const normalizedTicker = normalizeTicker(ticker)
+
   return {
-    symbol: ticker,
-    shortName: ticker,
+    symbol: normalizedTicker,
+    shortName: normalizedTicker,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -169,33 +177,31 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
 export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
   noStore()
 
-  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
-  const yahooQuote = yahooQuotes.get(tickerSymbol)
+  const normalizedTicker = normalizeTicker(tickerSymbol)
+
+  const yahooQuotes = await fetchYahooQuotes([normalizedTicker])
+  const yahooQuote = yahooQuotes.get(normalizedTicker)
   if (yahooQuote) {
     return yahooQuote
   }
 
-  if (isFmpApiAvailable()) {
-    try {
-      const fmpQuote = await fetchFmpQuote(tickerSymbol)
-      if (fmpQuote) {
-        return fmpQuote
-      }
-    } catch (error) {
-      console.warn(`FMP quote lookup failed for ${tickerSymbol}`, error)
-    }
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
   }
 
-  return createEmptyQuote(tickerSymbol)
+  return createEmptyQuote(normalizedTicker)
 }
 
 export const loadQuotesForSymbols = async (
   tickers: string[]
 ): Promise<Map<string, Quote>> => {
-  const uniqueTickers = Array.from(new Set(tickers))
-  const quotes = await fetchYahooQuotes(uniqueTickers)
+  const normalizedTickers = tickers.map((ticker) => normalizeTicker(ticker))
+  const uniqueTickers = Array.from(new Set(normalizedTickers))
+  const filteredTickers = uniqueTickers.filter((ticker) => ticker !== "")
+  const quotes = await fetchYahooQuotes(filteredTickers)
 
-  const unresolvedTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+  const unresolvedTickers = filteredTickers.filter((ticker) => !quotes.has(ticker))
 
   for (const ticker of unresolvedTickers) {
     try {

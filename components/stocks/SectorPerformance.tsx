@@ -1,4 +1,7 @@
-import { loadQuotesForSymbols } from "@/lib/yahoo-finance/fetchQuote"
+import {
+  loadQuotesForSymbols,
+  normalizeTicker,
+} from "@/lib/yahoo-finance/fetchQuote"
 import { cn } from "@/lib/utils"
 
 interface Sector {
@@ -30,7 +33,8 @@ async function fetchSectorPerformance(): Promise<Sector[]> {
     const quotes = await loadQuotesForSymbols(symbols)
 
     const sectors = SECTOR_ETFS.map(({ sector, symbol }) => {
-      const quote = quotes.get(symbol)
+      const normalizedSymbol = normalizeTicker(symbol)
+      const quote = quotes.get(normalizedSymbol)
       const changePercent =
         typeof quote?.regularMarketChangePercent === "number"
           ? quote.regularMarketChangePercent
