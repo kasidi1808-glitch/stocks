@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DataTableViewOptions } from "./column-toggle"
 import { Card, CardContent } from "@/components/ui/card"
+import { COMPANY_COLUMN_ID } from "./columns"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -108,10 +109,13 @@ export function DataTable<TData, TValue>({
           <Input
             placeholder="Filter company..."
             value={
-              (table.getColumn("shortName")?.getFilterValue() as string) ?? ""
+              (table.getColumn(COMPANY_COLUMN_ID)?.getFilterValue() as string) ??
+              ""
             }
             onChange={(event) =>
-              table.getColumn("shortName")?.setFilterValue(event.target.value)
+              table
+                .getColumn(COMPANY_COLUMN_ID)
+                ?.setFilterValue(event.target.value)
             }
             className="max-w-sm bg-background caret-blue-500"
           />
