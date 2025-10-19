@@ -59,6 +59,7 @@ export type Interval =
 export type Quote = {
   symbol: string
   shortName?: string | null
+  marketState?: string | null
   regularMarketPrice?: number | null
   regularMarketChange?: number | null
   regularMarketChangePercent?: number | null
@@ -79,9 +80,11 @@ export type Quote = {
   postMarketPrice?: number | null
   postMarketChange?: number | null
   postMarketChangePercent?: number | null
+  postMarketTime?: number | null
   preMarketPrice?: number | null
   preMarketChange?: number | null
   preMarketChangePercent?: number | null
+  preMarketTime?: number | null
   hasPrePostMarketData?: boolean
 }
 
