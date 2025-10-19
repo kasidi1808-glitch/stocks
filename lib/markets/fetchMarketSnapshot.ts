@@ -3,8 +3,6 @@ import { unstable_noStore as noStore } from "next/cache"
 import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
 
 import { getOfflineQuote } from "@/data/offlineQuotes"
-
-import { getOfflineQuote } from "@/data/offlineQuotes"
 import { loadQuotesForSymbols, normalizeTicker } from "../yahoo-finance/fetchQuote"
 
 import type { MarketInstrument } from "./types"
@@ -75,14 +73,6 @@ function applyInstrumentOverrides(
     ...quote,
     symbol: normalizedQuoteSymbol || fallbackSymbol,
     shortName: normalizedQuoteName ?? normalizedInstrumentName ?? (normalizedQuoteSymbol || fallbackSymbol),
-  }
-}
-
-async function loadSummariesForSymbols(
-  symbols: string[]
-): Promise<Map<string, QuoteSummary | null>> {
-  if (symbols.length === 0) {
-    return new Map()
   }
 
   const uniqueSymbols = Array.from(new Set(symbols))

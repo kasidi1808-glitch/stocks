@@ -18,7 +18,11 @@ export function normalizeTicker(ticker: string | null | undefined): string {
 
   const trimmed = ticker.trim()
 
-  return trimmed || ""
+  if (!trimmed) {
+    return ""
+  }
+
+  return trimmed.toUpperCase()
 }
 
 function createEmptyQuote(ticker: string): Quote {
@@ -221,6 +225,11 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     }
   } catch (error) {
     console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
+  }
+
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
   }
 
   const offlineQuote = getOfflineQuote(normalizedTicker)
