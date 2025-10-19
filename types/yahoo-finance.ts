@@ -26,6 +26,14 @@ export type ScreenerQuote = {
   marketCap?: number | null
   epsTrailingTwelveMonths?: number | null
   trailingPE?: number | null
+  /**
+   * Derived display fields that reflect the value Yahoo Finance highlights
+   * for the instrument (regular, pre-market, or post-market price).
+   */
+  displayPrice?: number | null
+  displayChange?: number | null
+  displayChangePercent?: number | null
+  displaySource?: QuoteDisplaySource
 }
 
 export type ScreenerResult = {
@@ -56,9 +64,12 @@ export type Interval =
   | "1mo"
   | "3mo";
 
+export type QuoteDisplaySource = "regular" | "pre" | "post"
+
 export type Quote = {
   symbol: string
   shortName?: string | null
+  marketState?: string | null
   regularMarketPrice?: number | null
   regularMarketChange?: number | null
   regularMarketChangePercent?: number | null
@@ -79,10 +90,21 @@ export type Quote = {
   postMarketPrice?: number | null
   postMarketChange?: number | null
   postMarketChangePercent?: number | null
+  postMarketTime?: number | null
   preMarketPrice?: number | null
   preMarketChange?: number | null
   preMarketChangePercent?: number | null
+  preMarketTime?: number | null
   hasPrePostMarketData?: boolean
+  /**
+   * Derived fields that represent the value currently highlighted on Yahoo Finance.
+   * These are populated by the display metrics helper so downstream UI can render
+   * consistent numbers without re-computing them.
+   */
+  displayPrice?: number | null
+  displayChange?: number | null
+  displayChangePercent?: number | null
+  displaySource?: QuoteDisplaySource
 }
 
 type QuoteSummarySection = Record<string, number | string | null | undefined>
