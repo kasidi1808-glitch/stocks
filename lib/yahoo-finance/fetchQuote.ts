@@ -242,6 +242,11 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return offlineQuote
   }
 
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
+  }
+
   return createEmptyQuote(normalizedTicker)
 }
 
@@ -260,18 +265,12 @@ export async function loadQuotesForSymbols(
   )
 
   for (const ticker of missingTickers) {
-    const offlineQuote = getOfflineQuote(ticker)
-
-    if (offlineQuote) {
-      quotes.set(ticker, offlineQuote)
-      continue
-    }
-
     try {
       const fallbackQuote = await fetchQuote(ticker)
 
       if (fallbackQuote) {
-        quotes.set(ticker, fallbackQuote)
+        const normalizedSymbol = normalizeTicker(fallbackQuote.symbol) || ticker
+        quotes.set(normalizedSymbol, fallbackQuote)
       }
     } catch (error) {
       console.warn(`Failed to hydrate quote for ${ticker}`, error)
