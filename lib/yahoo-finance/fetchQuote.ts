@@ -2,9 +2,6 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import { fetchFmpQuote } from "@/lib/fmp/quotes"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
-
 import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 
@@ -170,20 +167,14 @@ export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
   noStore()
 
   const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
-  const yahooQuote = yahooQuotes.get(tickerSymbol)
+  const normalizedTicker = tickerSymbol.trim()
+  const yahooQuote =
+    yahooQuotes.get(normalizedTicker) ??
+    yahooQuotes.get(normalizedTicker.toUpperCase()) ??
+    yahooQuotes.get(normalizedTicker.toLowerCase()) ??
+    yahooQuotes.get(tickerSymbol)
   if (yahooQuote) {
     return yahooQuote
-  }
-
-  if (isFmpApiAvailable()) {
-    try {
-      const fmpQuote = await fetchFmpQuote(tickerSymbol)
-      if (fmpQuote) {
-        return fmpQuote
-      }
-    } catch (error) {
-      console.warn(`FMP quote lookup failed for ${tickerSymbol}`, error)
-    }
   }
 
   return createEmptyQuote(tickerSymbol)
@@ -192,12 +183,19 @@ export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
 export const loadQuotesForSymbols = async (
   tickers: string[]
 ): Promise<Map<string, Quote>> => {
-  const uniqueTickers = Array.from(new Set(tickers))
+  const uniqueTickers = Array.from(new Set(tickers.map((ticker) => ticker.trim())))
   const quotes = await fetchYahooQuotes(uniqueTickers)
 
-  const unresolvedTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+  const stillMissing = uniqueTickers.filter((ticker) => {
+    const normalized = ticker.trim()
+    return (
+      !quotes.has(normalized) &&
+      !quotes.has(normalized.toUpperCase()) &&
+      !quotes.has(normalized.toLowerCase())
+    )
+  })
 
-  for (const ticker of unresolvedTickers) {
+  for (const ticker of stillMissing) {
     try {
       const fallbackQuote = await fetchQuote(ticker)
 
