@@ -2,13 +2,32 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import { loadQuotesForSymbols } from "../yahoo-finance/fetchQuote"
+import { getOfflineQuote } from "@/data/offlineQuotes"
+import { loadQuotesForSymbols, normalizeTicker } from "../yahoo-finance/fetchQuote"
 
 import type { MarketInstrument } from "./types"
 
+function normalizeName(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function createPlaceholderQuote(instrument: MarketInstrument): Quote {
-  return {
-    symbol: instrument.symbol,
+  const normalizedSymbol = normalizeTicker(instrument.symbol)
+  const fallbackSymbol = normalizedSymbol || instrument.symbol
+  const offlineQuote = getOfflineQuote(fallbackSymbol)
+
+  if (offlineQuote) {
+    return applyInstrumentOverrides(offlineQuote, instrument)
+  }
+
+  const placeholderQuote: Quote = {
+    symbol: fallbackSymbol,
     shortName: instrument.shortName,
     regularMarketPrice: null,
     regularMarketChange: null,
@@ -35,16 +54,24 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
     preMarketChangePercent: null,
     hasPrePostMarketData: false,
   }
+
+  return applyInstrumentOverrides(placeholderQuote, instrument)
 }
 
 function applyInstrumentOverrides(
   quote: Quote,
   instrument: MarketInstrument
 ): Quote {
+  const normalizedInstrumentSymbol = normalizeTicker(instrument.symbol)
+  const fallbackSymbol = normalizedInstrumentSymbol || instrument.symbol
+  const normalizedQuoteSymbol = normalizeTicker(quote.symbol)
+  const normalizedQuoteName = normalizeName(quote.shortName)
+  const normalizedInstrumentName = normalizeName(instrument.shortName)
+
   return {
     ...quote,
-    symbol: instrument.symbol,
-    shortName: instrument.shortName ?? quote.shortName ?? instrument.symbol,
+    symbol: normalizedQuoteSymbol || fallbackSymbol,
+    shortName: normalizedQuoteName ?? normalizedInstrumentName ?? (normalizedQuoteSymbol || fallbackSymbol),
   }
 }
 
@@ -53,11 +80,15 @@ export async function fetchMarketSnapshot(
 ): Promise<Quote[]> {
   noStore()
 
-  const symbols = instruments.map((instrument) => instrument.symbol)
+  const symbols = instruments.map((instrument) => normalizeTicker(instrument.symbol) || instrument.symbol)
   const quotesBySymbol = await loadQuotesForSymbols(symbols)
 
   return instruments.map((instrument) => {
-    const quote = quotesBySymbol.get(instrument.symbol)
+    const normalizedSymbol = normalizeTicker(instrument.symbol)
+    const lookupSymbol = normalizedSymbol || instrument.symbol
+    const quote =
+      quotesBySymbol.get(lookupSymbol) ??
+      (normalizedSymbol ? quotesBySymbol.get(instrument.symbol) : undefined)
 
     if (quote) {
       return applyInstrumentOverrides(quote, instrument)
