@@ -4,7 +4,6 @@ import type { QuoteSummary } from "@/types/yahoo-finance"
 
 import { fetchQuote } from "./fetchQuote"
 import { yahooFinanceFetch } from "./client"
-import { getOfflineQuoteSummary } from "@/data/offlineQuoteSummaries"
 
 function createEmptyQuoteSummary(): QuoteSummary {
   return {
@@ -106,11 +105,6 @@ export const loadQuoteSummary = async (
   const yahooQuoteSummary = await fetchQuoteSummaryFromYahoo(ticker)
   if (yahooQuoteSummary) {
     return yahooQuoteSummary
-  }
-
-  const offlineSummary = getOfflineQuoteSummary(ticker)
-  if (offlineSummary) {
-    return offlineSummary
   }
 
   try {

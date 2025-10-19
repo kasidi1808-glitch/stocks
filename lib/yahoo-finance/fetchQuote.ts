@@ -224,41 +224,34 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
 export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
   noStore()
 
-  const normalizedTicker = normalizeTicker(tickerSymbol)
-
-  const yahooQuotes = await fetchYahooQuotes([normalizedTicker])
-  const yahooQuote = yahooQuotes.get(normalizedTicker)
+  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
+  const normalizedTicker = tickerSymbol.trim()
+  const yahooQuote =
+    yahooQuotes.get(normalizedTicker) ??
+    yahooQuotes.get(normalizedTicker.toUpperCase()) ??
+    yahooQuotes.get(normalizedTicker.toLowerCase()) ??
+    yahooQuotes.get(tickerSymbol)
   if (yahooQuote) {
     return yahooQuote
   }
 
-  const offlineQuote = getOfflineQuote(tickerSymbol)
-  if (offlineQuote) {
-    return offlineQuote
-  }
-
-  return createEmptyQuote(normalizedTicker)
+  return createEmptyQuote(tickerSymbol)
 }
 
 export async function loadQuotesForSymbols(
   tickers: string[]
 ): Promise<Map<string, Quote>> => {
-  const normalizedTickers = tickers.map((ticker) => normalizeTicker(ticker))
-  const uniqueTickers = Array.from(new Set(normalizedTickers))
-  const filteredTickers = uniqueTickers.filter((ticker) => ticker !== "")
-  const quotes = await fetchYahooQuotes(filteredTickers)
+  const uniqueTickers = Array.from(new Set(tickers.map((ticker) => ticker.trim())))
+  const quotes = await fetchYahooQuotes(uniqueTickers)
 
-  const unresolvedTickers = filteredTickers.filter((ticker) => !quotes.has(ticker))
-
-  if (unresolvedTickers.length > 0) {
-    const offlineQuotes = getOfflineQuotes(unresolvedTickers)
-
-    offlineQuotes.forEach((quote, symbol) => {
-      quotes.set(symbol, quote)
-    })
-  }
-
-  const stillMissing = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+  const stillMissing = uniqueTickers.filter((ticker) => {
+    const normalized = ticker.trim()
+    return (
+      !quotes.has(normalized) &&
+      !quotes.has(normalized.toUpperCase()) &&
+      !quotes.has(normalized.toLowerCase())
+    )
+  })
 
   for (const ticker of stillMissing) {
     try {
