@@ -64,6 +64,10 @@ async function fetchQuoteSummaryFromYahoo(
 async function fetchQuoteSummaryFromFmp(
   ticker: string
 ): Promise<QuoteSummary | null> {
+  if (!isFmpApiAvailable()) {
+    return null
+  }
+
   try {
     const { fetchFmpQuoteSummary } = await import("@/lib/fmp/quoteSummary")
 
