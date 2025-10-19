@@ -9,6 +9,8 @@ import {
 
 import { fetchFmpQuote } from "@/lib/fmp/quotes"
 
+import yahooFinance from "yahoo-finance2"
+
 import { yahooFinanceFetch } from "./client"
 
 export function normalizeTicker(ticker: string | null | undefined): string {
@@ -160,6 +162,49 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
     return new Map()
   }
 
+  const populateMissingQuotes = async (
+    existing: Map<string, Quote>,
+    remainingSymbols: string[]
+  ) => {
+    if (remainingSymbols.length === 0) {
+      return existing
+    }
+
+    const additionalEntries = await Promise.all(
+      remainingSymbols.map(async (symbol) => {
+        try {
+          const result = await yahooFinance.quote(symbol, {}, { validateResult: false })
+
+          if (!result) {
+            return null
+          }
+
+          const normalized = normalizeYahooQuote(result)
+
+          if (!normalized.symbol) {
+            return null
+          }
+
+          return [normalized.symbol, normalized] as const
+        } catch (error) {
+          console.warn(`Failed to fetch Yahoo quote for ${symbol}`, error)
+          return null
+        }
+      })
+    )
+
+    for (const entry of additionalEntries) {
+      if (!entry) {
+        continue
+      }
+
+      const [symbol, quote] = entry
+      existing.set(symbol, quote)
+    }
+
+    return existing
+  }
+
   try {
     const data = await yahooFinanceFetch<QuoteApiResponse>("v7/finance/quote", {
       symbols: normalizedSymbols.join(","),
@@ -171,14 +216,24 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
       ? data.quoteResponse?.result
       : []
 
-    return new Map(
+    const quotes = new Map(
       results
         .map((item) => normalizeYahooQuote(item))
         .filter((quote) => quote.symbol)
         .map((quote) => [quote.symbol, quote] as const)
     )
+
+    const missingSymbols = normalizedSymbols.filter((symbol) => !quotes.has(symbol))
+
+    return await populateMissingQuotes(quotes, missingSymbols)
   } catch (error) {
     console.warn("Failed to fetch Yahoo quotes", error)
+    const quotes = await populateMissingQuotes(new Map(), normalizedSymbols)
+
+    if (quotes.size > 0) {
+      return quotes
+    }
+
     return getOfflineQuotes(normalizedSymbols)
   }
 }
@@ -198,6 +253,24 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return yahooQuote
   }
 
+  try {
+    const directYahooQuote = await yahooFinance.quote(
+      normalizedTicker,
+      {},
+      { validateResult: false }
+    )
+
+    if (directYahooQuote) {
+      const normalizedQuote = normalizeYahooQuote(directYahooQuote)
+
+      if (normalizedQuote.symbol) {
+        return normalizedQuote
+      }
+    }
+  } catch (error) {
+    console.warn(`Direct Yahoo quote lookup failed for ${normalizedTicker}`, error)
+  }
+
   if (isFmpApiAvailable()) {
     try {
       const fmpQuote = await fetchFmpQuote(normalizedTicker)
@@ -209,6 +282,11 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     }
   } catch (error) {
     console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
+  }
+
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
   }
 
   const offlineQuote = getOfflineQuote(normalizedTicker)
