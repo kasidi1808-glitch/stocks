@@ -36,9 +36,11 @@ async function fetchSectorPerformance(): Promise<Sector[]> {
       const normalizedSymbol = normalizeTicker(symbol)
       const quote = quotes.get(normalizedSymbol)
       const changePercent =
-        typeof quote?.regularMarketChangePercent === "number"
-          ? quote.regularMarketChangePercent
-          : null
+        typeof quote?.displayChangePercent === "number"
+          ? quote.displayChangePercent
+          : typeof quote?.regularMarketChangePercent === "number"
+            ? quote.regularMarketChangePercent
+            : null
 
       return {
         sector,
