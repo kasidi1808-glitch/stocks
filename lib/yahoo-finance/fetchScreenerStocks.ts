@@ -28,6 +28,34 @@ function toNumber(value: unknown): number | null {
   return null
 }
 
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  return trimmed
+}
+
+function normalizeName(value: unknown, symbol: string): string | null {
+  const normalized = normalizeString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.toUpperCase() === symbol.toUpperCase()) {
+    return null
+  }
+
+  return normalized
+}
+
 function calculatePe(price: number | null, eps: number | null): number | null {
   if (price === null || eps === null || eps <= 0) {
     return null
@@ -51,21 +79,32 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     toNumber(rawQuote?.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
-  return {
-    symbol: typeof rawQuote?.symbol === "string" ? rawQuote.symbol : "",
-    shortName:
-      rawQuote?.shortName ?? rawQuote?.longName ?? rawQuote?.symbol ?? "",
-    regularMarketPrice,
-    regularMarketChange: toNumber(rawQuote?.regularMarketChange),
-    regularMarketChangePercent: toNumber(
-      rawQuote?.regularMarketChangePercent
-    ),
-    regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
-    averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
-    marketCap: toNumber(rawQuote?.marketCap),
-    epsTrailingTwelveMonths,
-    trailingPE,
-  }
+  const rawSymbol =
+    normalizeString(rawQuote?.symbol) ?? normalizeString(rawQuote?.ticker) ?? ""
+  const symbol = rawSymbol
+  const shortNameCandidate = normalizeName(rawQuote?.shortName, symbol)
+  const displayNameCandidate =
+    normalizeName(rawQuote?.longName, symbol) ??
+    normalizeName(rawQuote?.displayName, symbol)
+
+  return applyCompanyNameFallbacks(
+    {
+      symbol,
+      shortName: shortNameCandidate ?? symbol,
+      longName: displayNameCandidate ?? shortNameCandidate ?? symbol,
+      regularMarketPrice,
+      regularMarketChange: toNumber(rawQuote?.regularMarketChange),
+      regularMarketChangePercent: toNumber(
+        rawQuote?.regularMarketChangePercent
+      ),
+      regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
+      averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
+      marketCap: toNumber(rawQuote?.marketCap),
+      epsTrailingTwelveMonths,
+      trailingPE,
+    },
+    rawQuote?.displayName
+  )
 }
 
 const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const
@@ -109,6 +148,860 @@ function toScreenerQuote(symbol: string): ScreenerQuote {
     marketCap: toNumber(offlineQuote.marketCap),
     epsTrailingTwelveMonths,
     trailingPE,
+  })
+}
+
+function preferSymbol(
+  primary: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  return fallback
+}
+
+function preferOptionalString(
+  primary: string | null | undefined,
+  fallback: string | null | undefined
+): string | null {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  if (typeof fallback === "string" && fallback.trim() !== "") {
+    return fallback
+  }
+
+  if (typeof primary === "string") {
+    return primary
+  }
+
+  if (typeof fallback === "string") {
+    return fallback
+  }
+
+  return null
+}
+
+function preferNumber(
+  primary: number | null | undefined,
+  fallback: number | null | undefined
+): number | null {
+  if (primary !== null && primary !== undefined) {
+    return primary
+  }
+
+  if (fallback !== null && fallback !== undefined) {
+    return fallback
+  }
+
+  return null
+}
+
+function mergeScreenerQuote(
+  base: ScreenerQuote,
+  quote: Quote | null | undefined
+): ScreenerQuote {
+  if (!quote) {
+    return base
+  }
+
+  const hydrated = hydratePeFromOfflineData(base.symbol, quote)
+  const normalized = quoteToScreenerQuote(base.symbol, hydrated)
+
+  return {
+    symbol: preferSymbol(normalized.symbol, base.symbol),
+    shortName: preferOptionalString(normalized.shortName, base.shortName),
+    regularMarketPrice: preferNumber(
+      normalized.regularMarketPrice,
+      base.regularMarketPrice
+    ),
+    regularMarketChange: preferNumber(
+      normalized.regularMarketChange,
+      base.regularMarketChange
+    ),
+    regularMarketChangePercent: preferNumber(
+      normalized.regularMarketChangePercent,
+      base.regularMarketChangePercent
+    ),
+    regularMarketVolume: preferNumber(
+      normalized.regularMarketVolume,
+      base.regularMarketVolume
+    ),
+    averageDailyVolume3Month: preferNumber(
+      normalized.averageDailyVolume3Month,
+      base.averageDailyVolume3Month
+    ),
+    marketCap: preferNumber(normalized.marketCap, base.marketCap),
+    epsTrailingTwelveMonths: preferNumber(
+      normalized.epsTrailingTwelveMonths,
+      base.epsTrailingTwelveMonths
+    ),
+    trailingPE: preferNumber(normalized.trailingPE, base.trailingPE),
+  }
+}
+
+async function enrichScreenerQuotes(
+  quotes: ScreenerQuote[]
+): Promise<ScreenerQuote[]> {
+  const symbols = Array.from(
+    new Set(
+      quotes
+        .map((quote) => quote.symbol)
+        .filter(
+          (symbol): symbol is string =>
+            typeof symbol === "string" && symbol.trim() !== ""
+        )
+    )
+  )
+
+  if (symbols.length === 0) {
+    return quotes
+  }
+
+  try {
+    const quotesBySymbol = await loadQuotesForSymbols(symbols)
+
+    return quotes.map((quote) =>
+      mergeScreenerQuote(quote, quotesBySymbol.get(quote.symbol))
+    )
+  } catch (error) {
+    console.warn("Failed to enrich screener quotes", error)
+    return quotes
+  }
+}
+
+function preferSymbol(
+  primary: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  return fallback
+}
+
+function preferOptionalString(
+  primary: string | null | undefined,
+  fallback: string | null | undefined
+): string | null {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  if (typeof fallback === "string" && fallback.trim() !== "") {
+    return fallback
+  }
+
+  if (typeof primary === "string") {
+    return primary
+  }
+
+  if (typeof fallback === "string") {
+    return fallback
+  }
+
+  return null
+}
+
+function preferNumber(
+  primary: number | null | undefined,
+  fallback: number | null | undefined
+): number | null {
+  if (primary !== null && primary !== undefined) {
+    return primary
+  }
+
+  if (fallback !== null && fallback !== undefined) {
+    return fallback
+  }
+
+  return null
+}
+
+function mergeScreenerQuote(
+  base: ScreenerQuote,
+  quote: Quote | null | undefined
+): ScreenerQuote {
+  if (!quote) {
+    return base
+  }
+
+  const hydrated = hydratePeFromOfflineData(base.symbol, quote)
+  const normalized = quoteToScreenerQuote(base.symbol, hydrated)
+
+  return {
+    symbol: preferSymbol(normalized.symbol, base.symbol),
+    shortName: preferOptionalString(normalized.shortName, base.shortName),
+    regularMarketPrice: preferNumber(
+      normalized.regularMarketPrice,
+      base.regularMarketPrice
+    ),
+    regularMarketChange: preferNumber(
+      normalized.regularMarketChange,
+      base.regularMarketChange
+    ),
+    regularMarketChangePercent: preferNumber(
+      normalized.regularMarketChangePercent,
+      base.regularMarketChangePercent
+    ),
+    regularMarketVolume: preferNumber(
+      normalized.regularMarketVolume,
+      base.regularMarketVolume
+    ),
+    averageDailyVolume3Month: preferNumber(
+      normalized.averageDailyVolume3Month,
+      base.averageDailyVolume3Month
+    ),
+    marketCap: preferNumber(normalized.marketCap, base.marketCap),
+    epsTrailingTwelveMonths: preferNumber(
+      normalized.epsTrailingTwelveMonths,
+      base.epsTrailingTwelveMonths
+    ),
+    trailingPE: preferNumber(normalized.trailingPE, base.trailingPE),
+  }
+}
+
+async function enrichScreenerQuotes(
+  quotes: ScreenerQuote[]
+): Promise<ScreenerQuote[]> {
+  const symbols = Array.from(
+    new Set(
+      quotes
+        .map((quote) => quote.symbol)
+        .filter(
+          (symbol): symbol is string =>
+            typeof symbol === "string" && symbol.trim() !== ""
+        )
+    )
+  )
+
+  if (symbols.length === 0) {
+    return quotes
+  }
+
+  try {
+    const quotesBySymbol = await loadQuotesForSymbols(symbols)
+
+    return quotes.map((quote) =>
+      mergeScreenerQuote(quote, quotesBySymbol.get(quote.symbol))
+    )
+  } catch (error) {
+    console.warn("Failed to enrich screener quotes", error)
+    return quotes
+  }
+}
+
+function preferSymbol(
+  primary: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  return fallback
+}
+
+function preferOptionalString(
+  primary: string | null | undefined,
+  fallback: string | null | undefined
+): string | null {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  if (typeof fallback === "string" && fallback.trim() !== "") {
+    return fallback
+  }
+
+  if (typeof primary === "string") {
+    return primary
+  }
+
+  if (typeof fallback === "string") {
+    return fallback
+  }
+
+  return null
+}
+
+function preferNumber(
+  primary: number | null | undefined,
+  fallback: number | null | undefined
+): number | null {
+  if (primary !== null && primary !== undefined) {
+    return primary
+  }
+
+  if (fallback !== null && fallback !== undefined) {
+    return fallback
+  }
+
+  return null
+}
+
+function mergeScreenerQuote(
+  base: ScreenerQuote,
+  quote: Quote | null | undefined
+): ScreenerQuote {
+  if (!quote) {
+    return base
+  }
+
+  const hydrated = hydratePeFromOfflineData(base.symbol, quote)
+  const normalized = quoteToScreenerQuote(base.symbol, hydrated)
+
+  return {
+    symbol: preferSymbol(normalized.symbol, base.symbol),
+    shortName: preferOptionalString(normalized.shortName, base.shortName),
+    regularMarketPrice: preferNumber(
+      normalized.regularMarketPrice,
+      base.regularMarketPrice
+    ),
+    regularMarketChange: preferNumber(
+      normalized.regularMarketChange,
+      base.regularMarketChange
+    ),
+    regularMarketChangePercent: preferNumber(
+      normalized.regularMarketChangePercent,
+      base.regularMarketChangePercent
+    ),
+    regularMarketVolume: preferNumber(
+      normalized.regularMarketVolume,
+      base.regularMarketVolume
+    ),
+    averageDailyVolume3Month: preferNumber(
+      normalized.averageDailyVolume3Month,
+      base.averageDailyVolume3Month
+    ),
+    marketCap: preferNumber(normalized.marketCap, base.marketCap),
+    epsTrailingTwelveMonths: preferNumber(
+      normalized.epsTrailingTwelveMonths,
+      base.epsTrailingTwelveMonths
+    ),
+    trailingPE: preferNumber(normalized.trailingPE, base.trailingPE),
+  }
+}
+
+async function enrichScreenerQuotes(
+  quotes: ScreenerQuote[]
+): Promise<ScreenerQuote[]> {
+  const symbols = Array.from(
+    new Set(
+      quotes
+        .map((quote) => quote.symbol)
+        .filter(
+          (symbol): symbol is string =>
+            typeof symbol === "string" && symbol.trim() !== ""
+        )
+    )
+  )
+
+  if (symbols.length === 0) {
+    return quotes
+  }
+
+  try {
+    const quotesBySymbol = await loadQuotesForSymbols(symbols)
+
+    return quotes.map((quote) =>
+      mergeScreenerQuote(quote, quotesBySymbol.get(quote.symbol))
+    )
+  } catch (error) {
+    console.warn("Failed to enrich screener quotes", error)
+    return quotes
+  }
+}
+
+function preferSymbol(
+  primary: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  return fallback
+}
+
+function preferOptionalString(
+  primary: string | null | undefined,
+  fallback: string | null | undefined
+): string | null {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  if (typeof fallback === "string" && fallback.trim() !== "") {
+    return fallback
+  }
+
+  if (typeof primary === "string") {
+    return primary
+  }
+
+  if (typeof fallback === "string") {
+    return fallback
+  }
+
+  return null
+}
+
+function preferNumber(
+  primary: number | null | undefined,
+  fallback: number | null | undefined
+): number | null {
+  if (primary !== null && primary !== undefined) {
+    return primary
+  }
+
+  if (fallback !== null && fallback !== undefined) {
+    return fallback
+  }
+
+  return null
+}
+
+function mergeScreenerQuote(
+  base: ScreenerQuote,
+  quote: Quote | null | undefined
+): ScreenerQuote {
+  if (!quote) {
+    return base
+  }
+
+  const hydrated = hydratePeFromOfflineData(base.symbol, quote)
+  const normalized = quoteToScreenerQuote(base.symbol, hydrated)
+
+  return {
+    symbol: preferSymbol(normalized.symbol, base.symbol),
+    shortName: preferOptionalString(normalized.shortName, base.shortName),
+    regularMarketPrice: preferNumber(
+      normalized.regularMarketPrice,
+      base.regularMarketPrice
+    ),
+    regularMarketChange: preferNumber(
+      normalized.regularMarketChange,
+      base.regularMarketChange
+    ),
+    regularMarketChangePercent: preferNumber(
+      normalized.regularMarketChangePercent,
+      base.regularMarketChangePercent
+    ),
+    regularMarketVolume: preferNumber(
+      normalized.regularMarketVolume,
+      base.regularMarketVolume
+    ),
+    averageDailyVolume3Month: preferNumber(
+      normalized.averageDailyVolume3Month,
+      base.averageDailyVolume3Month
+    ),
+    marketCap: preferNumber(normalized.marketCap, base.marketCap),
+    epsTrailingTwelveMonths: preferNumber(
+      normalized.epsTrailingTwelveMonths,
+      base.epsTrailingTwelveMonths
+    ),
+    trailingPE: preferNumber(normalized.trailingPE, base.trailingPE),
+  }
+}
+
+async function enrichScreenerQuotes(
+  quotes: ScreenerQuote[]
+): Promise<ScreenerQuote[]> {
+  const symbols = Array.from(
+    new Set(
+      quotes
+        .map((quote) => quote.symbol)
+        .filter(
+          (symbol): symbol is string =>
+            typeof symbol === "string" && symbol.trim() !== ""
+        )
+    )
+  )
+
+  if (symbols.length === 0) {
+    return quotes
+  }
+
+  try {
+    const quotesBySymbol = await loadQuotesForSymbols(symbols)
+
+    return quotes.map((quote) =>
+      mergeScreenerQuote(quote, quotesBySymbol.get(quote.symbol))
+    )
+  } catch (error) {
+    console.warn("Failed to enrich screener quotes", error)
+    return quotes
+  }
+}
+
+function preferSymbol(
+  primary: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  return fallback
+}
+
+function preferOptionalString(
+  primary: string | null | undefined,
+  fallback: string | null | undefined
+): string | null {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  if (typeof fallback === "string" && fallback.trim() !== "") {
+    return fallback
+  }
+
+  if (typeof primary === "string") {
+    return primary
+  }
+
+  if (typeof fallback === "string") {
+    return fallback
+  }
+
+  return null
+}
+
+function preferNumber(
+  primary: number | null | undefined,
+  fallback: number | null | undefined
+): number | null {
+  if (primary !== null && primary !== undefined) {
+    return primary
+  }
+
+  if (fallback !== null && fallback !== undefined) {
+    return fallback
+  }
+
+  return null
+}
+
+function mergeScreenerQuote(
+  base: ScreenerQuote,
+  quote: Quote | null | undefined
+): ScreenerQuote {
+  if (!quote) {
+    return base
+  }
+
+  const hydrated = hydrateQuoteFromOfflineData(base.symbol, quote)
+  const normalized = quoteToScreenerQuote(base.symbol, hydrated)
+
+  return {
+    symbol: preferSymbol(normalized.symbol, base.symbol),
+    shortName: preferOptionalString(normalized.shortName, base.shortName),
+    regularMarketPrice: preferNumber(
+      normalized.regularMarketPrice,
+      base.regularMarketPrice
+    ),
+    regularMarketChange: preferNumber(
+      normalized.regularMarketChange,
+      base.regularMarketChange
+    ),
+    regularMarketChangePercent: preferNumber(
+      normalized.regularMarketChangePercent,
+      base.regularMarketChangePercent
+    ),
+    regularMarketVolume: preferNumber(
+      normalized.regularMarketVolume,
+      base.regularMarketVolume
+    ),
+    averageDailyVolume3Month: preferNumber(
+      normalized.averageDailyVolume3Month,
+      base.averageDailyVolume3Month
+    ),
+    marketCap: preferNumber(normalized.marketCap, base.marketCap),
+    epsTrailingTwelveMonths: preferNumber(
+      normalized.epsTrailingTwelveMonths,
+      base.epsTrailingTwelveMonths
+    ),
+    trailingPE: preferNumber(normalized.trailingPE, base.trailingPE),
+  }
+}
+
+async function enrichScreenerQuotes(
+  quotes: ScreenerQuote[]
+): Promise<ScreenerQuote[]> {
+  const symbols = Array.from(
+    new Set(
+      quotes
+        .map((quote) => quote.symbol)
+        .filter(
+          (symbol): symbol is string =>
+            typeof symbol === "string" && symbol.trim() !== ""
+        )
+    )
+  )
+
+  if (symbols.length === 0) {
+    return quotes
+  }
+
+  try {
+    const quotesBySymbol = await loadQuotesForSymbols(symbols)
+
+    return quotes.map((quote) =>
+      mergeScreenerQuote(quote, quotesBySymbol.get(quote.symbol))
+    )
+  } catch (error) {
+    console.warn("Failed to enrich screener quotes", error)
+    return quotes
+  }
+}
+
+function preferSymbol(
+  primary: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  return fallback
+}
+
+function preferOptionalString(
+  primary: string | null | undefined,
+  fallback: string | null | undefined
+): string | null {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  if (typeof fallback === "string" && fallback.trim() !== "") {
+    return fallback
+  }
+
+  if (typeof primary === "string") {
+    return primary
+  }
+
+  if (typeof fallback === "string") {
+    return fallback
+  }
+
+  return null
+}
+
+function preferNumber(
+  primary: number | null | undefined,
+  fallback: number | null | undefined
+): number | null {
+  if (primary !== null && primary !== undefined) {
+    return primary
+  }
+
+  if (fallback !== null && fallback !== undefined) {
+    return fallback
+  }
+
+  return null
+}
+
+function mergeScreenerQuote(
+  base: ScreenerQuote,
+  quote: Quote | null | undefined
+): ScreenerQuote {
+  if (!quote) {
+    return base
+  }
+
+  const hydrated = hydrateQuoteFromOfflineData(base.symbol, quote)
+  const normalized = quoteToScreenerQuote(base.symbol, hydrated)
+
+  return {
+    symbol: preferSymbol(normalized.symbol, base.symbol),
+    shortName: preferOptionalString(normalized.shortName, base.shortName),
+    regularMarketPrice: preferNumber(
+      normalized.regularMarketPrice,
+      base.regularMarketPrice
+    ),
+    regularMarketChange: preferNumber(
+      normalized.regularMarketChange,
+      base.regularMarketChange
+    ),
+    regularMarketChangePercent: preferNumber(
+      normalized.regularMarketChangePercent,
+      base.regularMarketChangePercent
+    ),
+    regularMarketVolume: preferNumber(
+      normalized.regularMarketVolume,
+      base.regularMarketVolume
+    ),
+    averageDailyVolume3Month: preferNumber(
+      normalized.averageDailyVolume3Month,
+      base.averageDailyVolume3Month
+    ),
+    marketCap: preferNumber(normalized.marketCap, base.marketCap),
+    epsTrailingTwelveMonths: preferNumber(
+      normalized.epsTrailingTwelveMonths,
+      base.epsTrailingTwelveMonths
+    ),
+    trailingPE: preferNumber(normalized.trailingPE, base.trailingPE),
+  }
+}
+
+async function enrichScreenerQuotes(
+  quotes: ScreenerQuote[]
+): Promise<ScreenerQuote[]> {
+  const symbols = Array.from(
+    new Set(
+      quotes
+        .map((quote) => quote.symbol)
+        .filter(
+          (symbol): symbol is string =>
+            typeof symbol === "string" && symbol.trim() !== ""
+        )
+    )
+  )
+
+  if (symbols.length === 0) {
+    return quotes
+  }
+
+  try {
+    const quotesBySymbol = await loadQuotesForSymbols(symbols)
+
+    return quotes.map((quote) =>
+      mergeScreenerQuote(quote, quotesBySymbol.get(quote.symbol))
+    )
+  } catch (error) {
+    console.warn("Failed to enrich screener quotes", error)
+    return quotes
+  }
+}
+
+function preferSymbol(
+  primary: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  return fallback
+}
+
+function preferOptionalString(
+  primary: string | null | undefined,
+  fallback: string | null | undefined
+): string | null {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
+  }
+
+  if (typeof fallback === "string" && fallback.trim() !== "") {
+    return fallback
+  }
+
+  if (typeof primary === "string") {
+    return primary
+  }
+
+  if (typeof fallback === "string") {
+    return fallback
+  }
+
+  return null
+}
+
+function preferNumber(
+  primary: number | null | undefined,
+  fallback: number | null | undefined
+): number | null {
+  if (primary !== null && primary !== undefined) {
+    return primary
+  }
+
+  if (fallback !== null && fallback !== undefined) {
+    return fallback
+  }
+
+  return null
+}
+
+function mergeScreenerQuote(
+  base: ScreenerQuote,
+  quote: Quote | null | undefined
+): ScreenerQuote {
+  if (!quote) {
+    return base
+  }
+
+  const hydrated = hydrateQuoteFromOfflineData(base.symbol, quote)
+  const normalized = quoteToScreenerQuote(base.symbol, hydrated)
+
+  return {
+    symbol: preferSymbol(normalized.symbol, base.symbol),
+    shortName: preferOptionalString(normalized.shortName, base.shortName),
+    regularMarketPrice: preferNumber(
+      normalized.regularMarketPrice,
+      base.regularMarketPrice
+    ),
+    regularMarketChange: preferNumber(
+      normalized.regularMarketChange,
+      base.regularMarketChange
+    ),
+    regularMarketChangePercent: preferNumber(
+      normalized.regularMarketChangePercent,
+      base.regularMarketChangePercent
+    ),
+    regularMarketVolume: preferNumber(
+      normalized.regularMarketVolume,
+      base.regularMarketVolume
+    ),
+    averageDailyVolume3Month: preferNumber(
+      normalized.averageDailyVolume3Month,
+      base.averageDailyVolume3Month
+    ),
+    marketCap: preferNumber(normalized.marketCap, base.marketCap),
+    epsTrailingTwelveMonths: preferNumber(
+      normalized.epsTrailingTwelveMonths,
+      base.epsTrailingTwelveMonths
+    ),
+    trailingPE: preferNumber(normalized.trailingPE, base.trailingPE),
+  }
+}
+
+async function enrichScreenerQuotes(
+  quotes: ScreenerQuote[]
+): Promise<ScreenerQuote[]> {
+  const symbols = Array.from(
+    new Set(
+      quotes
+        .map((quote) => quote.symbol)
+        .filter(
+          (symbol): symbol is string =>
+            typeof symbol === "string" && symbol.trim() !== ""
+        )
+    )
+  )
+
+  if (symbols.length === 0) {
+    return quotes
+  }
+
+  try {
+    const quotesBySymbol = await loadQuotesForSymbols(symbols)
+
+    return quotes.map((quote) =>
+      mergeScreenerQuote(quote, quotesBySymbol.get(quote.symbol))
+    )
+  } catch (error) {
+    console.warn("Failed to enrich screener quotes", error)
+    return quotes
   }
 }
 
