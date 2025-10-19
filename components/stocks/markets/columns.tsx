@@ -4,6 +4,26 @@ import { ColumnDef } from "@tanstack/react-table"
 import type { Quote } from "@/types/yahoo-finance"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import {
+  getDisplayMetrics,
+  type QuoteDisplayMetrics,
+} from "@/lib/markets/displayMetrics"
+
+function resolveDisplayMetrics(quote: Quote): QuoteDisplayMetrics {
+  if (
+    Object.prototype.hasOwnProperty.call(quote, "displayPrice") &&
+    quote.displayPrice !== undefined
+  ) {
+    return {
+      price: quote.displayPrice ?? null,
+      change: quote.displayChange ?? null,
+      changePercent: quote.displayChangePercent ?? null,
+      source: quote.displaySource ?? "regular",
+    }
+  }
+
+  return getDisplayMetrics(quote)
+}
 
 export const columns: ColumnDef<Quote>[] = [
   {
@@ -33,10 +53,20 @@ export const columns: ColumnDef<Quote>[] = [
     header: () => <div className="text-right">Price</div>,
     cell: (props) => {
       const { row } = props
-      const price = row.getValue("regularMarketPrice") as number | null
+      const metrics = resolveDisplayMetrics(row.original)
+      const { price, source } = metrics
 
       if (typeof price === "number") {
-        return <div className="text-right">{price.toFixed(2)}</div>
+        return (
+          <div className="text-right">
+            {price.toFixed(2)}
+            {source !== "regular" && (
+              <span className="ml-1 text-xs uppercase text-muted-foreground">
+                {source === "post" ? "Post" : "Pre"}
+              </span>
+            )}
+          </div>
+        )
       }
 
       return <div className="text-right text-muted-foreground">—</div>
@@ -47,7 +77,7 @@ export const columns: ColumnDef<Quote>[] = [
     header: () => <div className="text-right">$ Change</div>,
     cell: (props) => {
       const { row } = props
-      const change = row.getValue("regularMarketChange") as number | null
+      const { change } = resolveDisplayMetrics(row.original)
 
       if (typeof change === "number") {
         return (
@@ -71,9 +101,7 @@ export const columns: ColumnDef<Quote>[] = [
     header: () => <div className="text-right">% Change</div>,
     cell: (props) => {
       const { row } = props
-      const changePercent = row.getValue(
-        "regularMarketChangePercent"
-      ) as number | null
+      const { changePercent } = resolveDisplayMetrics(row.original)
 
       if (typeof changePercent === "number") {
         return (

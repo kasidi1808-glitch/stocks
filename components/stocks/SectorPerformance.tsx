@@ -32,9 +32,11 @@ async function fetchSectorPerformance(): Promise<Sector[]> {
     const sectors = SECTOR_ETFS.map(({ sector, symbol }) => {
       const quote = quotes.get(symbol)
       const changePercent =
-        typeof quote?.regularMarketChangePercent === "number"
-          ? quote.regularMarketChangePercent
-          : null
+        typeof quote?.displayChangePercent === "number"
+          ? quote.displayChangePercent
+          : typeof quote?.regularMarketChangePercent === "number"
+            ? quote.regularMarketChangePercent
+            : null
 
       return {
         sector,
