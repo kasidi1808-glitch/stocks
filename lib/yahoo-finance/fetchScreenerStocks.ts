@@ -28,6 +28,34 @@ function toNumber(value: unknown): number | null {
   return null
 }
 
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  return trimmed
+}
+
+function normalizeName(value: unknown, symbol: string): string | null {
+  const normalized = normalizeString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.toUpperCase() === symbol.toUpperCase()) {
+    return null
+  }
+
+  return normalized
+}
+
 function calculatePe(price: number | null, eps: number | null): number | null {
   if (price === null || eps === null || eps <= 0) {
     return null
@@ -51,21 +79,87 @@ function normalizeScreenerQuote(rawQuote: any): ScreenerQuote {
     toNumber(rawQuote?.trailingPE) ??
     calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
 
+  const rawSymbol =
+    normalizeString(rawQuote?.symbol) ?? normalizeString(rawQuote?.ticker) ?? ""
+  const symbol = rawSymbol
+  const shortNameCandidate = normalizeName(rawQuote?.shortName, symbol)
+  const displayNameCandidate =
+    normalizeName(rawQuote?.longName, symbol) ??
+    normalizeName(rawQuote?.displayName, symbol)
+
+  return applyCompanyNameFallbacks(
+    {
+      symbol,
+      shortName: shortNameCandidate ?? symbol,
+      longName: displayNameCandidate ?? shortNameCandidate ?? symbol,
+      regularMarketPrice,
+      regularMarketChange: toNumber(rawQuote?.regularMarketChange),
+      regularMarketChangePercent: toNumber(
+        rawQuote?.regularMarketChangePercent
+      ),
+      regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
+      averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
+      marketCap: toNumber(rawQuote?.marketCap),
+      epsTrailingTwelveMonths,
+      trailingPE,
+    },
+    rawQuote?.displayName
+  )
+}
+
+const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const
+
+function toScreenerQuote(symbol: string): ScreenerQuote {
+  const offlineQuote = getOfflineQuote(symbol)
+
+  if (!offlineQuote) {
+    return {
+      symbol,
+      shortName: symbol,
+      regularMarketPrice: null,
+      regularMarketChange: null,
+      regularMarketChangePercent: null,
+      regularMarketVolume: null,
+      averageDailyVolume3Month: null,
+      marketCap: null,
+      epsTrailingTwelveMonths: null,
+      trailingPE: null,
+    }
+  }
+
+  const regularMarketPrice = toNumber(offlineQuote.regularMarketPrice)
+  const epsTrailingTwelveMonths = toNumber(offlineQuote.trailingEps)
+  const trailingPE =
+    toNumber(offlineQuote.trailingPE) ??
+    calculatePe(regularMarketPrice, epsTrailingTwelveMonths)
+
   return {
-    symbol: typeof rawQuote?.symbol === "string" ? rawQuote.symbol : "",
-    shortName:
-      rawQuote?.shortName ?? rawQuote?.longName ?? rawQuote?.symbol ?? "",
+    symbol: offlineQuote.symbol,
+    shortName: offlineQuote.shortName ?? offlineQuote.symbol,
     regularMarketPrice,
-    regularMarketChange: toNumber(rawQuote?.regularMarketChange),
+    regularMarketChange: toNumber(offlineQuote.regularMarketChange),
     regularMarketChangePercent: toNumber(
-      rawQuote?.regularMarketChangePercent
+      offlineQuote.regularMarketChangePercent
     ),
-    regularMarketVolume: toNumber(rawQuote?.regularMarketVolume),
-    averageDailyVolume3Month: toNumber(rawQuote?.averageDailyVolume3Month),
-    marketCap: toNumber(rawQuote?.marketCap),
+    regularMarketVolume: toNumber(offlineQuote.regularMarketVolume),
+    averageDailyVolume3Month: toNumber(
+      offlineQuote.averageDailyVolume3Month
+    ),
+    marketCap: toNumber(offlineQuote.marketCap),
     epsTrailingTwelveMonths,
     trailingPE,
+  })
+}
+
+function preferSymbol(
+  primary: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof primary === "string" && primary.trim() !== "") {
+    return primary
   }
+
+  return fallback
 }
 
 const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const

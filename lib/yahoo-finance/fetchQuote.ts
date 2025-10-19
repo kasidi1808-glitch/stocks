@@ -51,16 +51,82 @@ function createEmptyQuote(ticker: string): Quote {
     preMarketChange: null,
     preMarketChangePercent: null,
     hasPrePostMarketData: false,
+  })
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
   }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
 }
 
 export function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
 
+  const regularMarketPrice = asFiniteNumber(response?.regularMarketPrice)
+  const trailingEps = asFiniteNumber(response?.trailingEps)
+
+  let trailingPE = asFiniteNumber(response?.trailingPE)
+
+  if (
+    (!trailingPE || trailingPE <= 0) &&
+    regularMarketPrice &&
+    trailingEps &&
+    trailingEps !== 0
+  ) {
+    const computedPe = regularMarketPrice / trailingEps
+
+    if (Number.isFinite(computedPe) && computedPe > 0) {
+      trailingPE = computedPe
+    }
+  }
+
   return {
     symbol: response?.symbol ?? "",
     shortName: response?.shortName ?? response?.symbol ?? "",
-    regularMarketPrice: response?.regularMarketPrice ?? null,
+    regularMarketPrice,
     regularMarketChange: response?.regularMarketChange ?? null,
     regularMarketChangePercent: response?.regularMarketChangePercent ?? null,
     regularMarketDayLow: response?.regularMarketDayLow ?? null,
@@ -72,8 +138,8 @@ export function normalizeYahooQuote(response: any): Quote {
     averageDailyVolume3Month: response?.averageDailyVolume3Month ?? null,
     regularMarketOpen: response?.regularMarketOpen ?? null,
     regularMarketPreviousClose: response?.regularMarketPreviousClose ?? null,
-    trailingEps: response?.trailingEps ?? null,
-    trailingPE: response?.trailingPE ?? null,
+    trailingEps,
+    trailingPE,
     fullExchangeName: response?.fullExchangeName ?? null,
     currency: response?.currency ?? null,
     regularMarketTime:
@@ -185,6 +251,16 @@ export async function loadQuotesForSymbols(
     } catch (error) {
       console.warn(`Failed to hydrate quote for ${ticker}`, error)
     }
+  }
+
+  const stillMissing = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+
+  if (stillMissing.length > 0) {
+    const offlineQuotes = getOfflineQuotes(stillMissing)
+
+    offlineQuotes.forEach((quote, symbol) => {
+      quotes.set(symbol, quote)
+    })
   }
 
   return quotes
