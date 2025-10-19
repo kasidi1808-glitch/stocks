@@ -62,6 +62,36 @@ function createEmptyQuote(ticker: string): Quote {
     preMarketChangePercent: null,
     preMarketTime: null,
     hasPrePostMarketData: false,
+  })
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
   }
 
   return applyDisplayMetrics(emptyQuote)
@@ -69,6 +99,24 @@ function createEmptyQuote(ticker: string): Quote {
 
 export function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
+
+  const regularMarketPrice = asFiniteNumber(response?.regularMarketPrice)
+  const trailingEps = asFiniteNumber(response?.trailingEps)
+
+  let trailingPE = asFiniteNumber(response?.trailingPE)
+
+  if (
+    (!trailingPE || trailingPE <= 0) &&
+    regularMarketPrice &&
+    trailingEps &&
+    trailingEps !== 0
+  ) {
+    const computedPe = regularMarketPrice / trailingEps
+
+    if (Number.isFinite(computedPe) && computedPe > 0) {
+      trailingPE = computedPe
+    }
+  }
 
   return {
     symbol: response?.symbol ?? "",
@@ -86,8 +134,8 @@ export function normalizeYahooQuote(response: any): Quote {
     averageDailyVolume3Month: response?.averageDailyVolume3Month ?? null,
     regularMarketOpen: response?.regularMarketOpen ?? null,
     regularMarketPreviousClose: response?.regularMarketPreviousClose ?? null,
-    trailingEps: response?.trailingEps ?? null,
-    trailingPE: response?.trailingPE ?? null,
+    trailingEps,
+    trailingPE,
     fullExchangeName: response?.fullExchangeName ?? null,
     currency: response?.currency ?? null,
     regularMarketTime:
@@ -249,6 +297,23 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     } catch (error) {
       console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
     }
+  } catch (error) {
+    console.warn(`FMP quote lookup failed for ${normalizedTicker}`, error)
+  }
+
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
+  }
+
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
+  }
+
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
   }
 
   const offlineQuote = getOfflineQuote(normalizedTicker)
