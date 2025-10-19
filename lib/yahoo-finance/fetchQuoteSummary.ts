@@ -1,6 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache"
 
-import type { Quote, QuoteSummary } from "@/types/yahoo-finance"
+import type { QuoteSummary } from "@/types/yahoo-finance"
 
 import { fetchQuote } from "./fetchQuote"
 import { yahooFinanceFetch } from "./client"
