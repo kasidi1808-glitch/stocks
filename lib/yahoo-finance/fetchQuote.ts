@@ -28,7 +28,7 @@ export function normalizeTicker(ticker: string | null | undefined): string {
 function createEmptyQuote(ticker: string): Quote {
   const symbol = normalizeTicker(ticker) || ticker
 
-  return {
+  const emptyQuote: Quote = {
     symbol,
     shortName: symbol || ticker,
     regularMarketPrice: null,
@@ -87,23 +87,7 @@ function asFiniteNumber(value: unknown): number | null {
     return value
   }
 
-  return null
-}
-
-function asFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
-  }
-
-  return null
-}
-
-function asFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
-  }
-
-  return null
+  return emptyQuote
 }
 
 export function normalizeYahooQuote(response: any): Quote {
@@ -237,6 +221,11 @@ export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
     return offlineQuote
   }
 
+  const offlineQuote = getOfflineQuote(normalizedTicker)
+  if (offlineQuote) {
+    return offlineQuote
+  }
+
   return createEmptyQuote(normalizedTicker)
 }
 
@@ -283,16 +272,6 @@ export async function loadQuotesForSymbols(
 
     const [symbol, quote] = entry
     quotes.set(symbol, quote)
-  }
-
-  const stillMissing = uniqueTickers.filter((ticker) => !quotes.has(ticker))
-
-  if (stillMissing.length > 0) {
-    const offlineQuotes = getOfflineQuotes(stillMissing)
-
-    offlineQuotes.forEach((quote, symbol) => {
-      quotes.set(symbol, quote)
-    })
   }
 
   return quotes

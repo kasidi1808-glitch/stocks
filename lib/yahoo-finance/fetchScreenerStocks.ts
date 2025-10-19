@@ -165,7 +165,7 @@ function createFallbackResult(
   limit: number,
   description: string
 ): ScreenerResult {
-  const quotes = FALLBACK_SYMBOLS.slice(0, limit).map((symbol) =>
+  const fallbackQuotes = FALLBACK_SYMBOLS.slice(0, limit).map((symbol) =>
     toScreenerQuote(symbol)
   )
 
@@ -174,10 +174,10 @@ function createFallbackResult(
     title: "Market data unavailable",
     description,
     canonicalName: query,
-    quotes,
+    quotes: fallbackQuotes,
     start: 0,
-    count: quotes.length,
-    total: quotes.length,
+    count: fallbackQuotes.length,
+    total: fallbackQuotes.length,
   }
 }
 
