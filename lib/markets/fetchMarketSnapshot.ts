@@ -26,39 +26,10 @@ function createPlaceholderQuote(instrument: MarketInstrument): Quote {
     return applyInstrumentOverrides(offlineQuote, instrument)
   }
 
-  return {
-    symbol: instrument.symbol,
-    shortName: instrument.shortName,
-    regularMarketPrice: null,
-    regularMarketChange: null,
-    regularMarketChangePercent: null,
-    regularMarketDayLow: null,
-    regularMarketDayHigh: null,
-    fiftyTwoWeekLow: null,
-    fiftyTwoWeekHigh: null,
-    marketCap: null,
-    regularMarketVolume: null,
-    averageDailyVolume3Month: null,
-    regularMarketOpen: null,
-    regularMarketPreviousClose: null,
-    trailingEps: null,
-    trailingPE: null,
-    fullExchangeName: null,
-    currency: null,
-    regularMarketTime: null,
-    postMarketPrice: null,
-    postMarketChange: null,
-    postMarketChangePercent: null,
-    preMarketPrice: null,
-    preMarketChange: null,
-    preMarketChangePercent: null,
-    hasPrePostMarketData: false,
-  }
-
   return applyInstrumentOverrides(
     {
       symbol: instrument.symbol,
-      shortName: instrument.shortName ?? instrument.symbol,
+      shortName: instrument.shortName,
       regularMarketPrice: null,
       regularMarketChange: null,
       regularMarketChangePercent: null,

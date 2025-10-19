@@ -162,44 +162,6 @@ function preferSymbol(
   return fallback
 }
 
-function preferOptionalString(
-  primary: string | null | undefined,
-  fallback: string | null | undefined
-): string | null {
-  if (typeof primary === "string" && primary.trim() !== "") {
-    return primary
-  }
-
-  if (typeof fallback === "string" && fallback.trim() !== "") {
-    return fallback
-  }
-
-  if (typeof primary === "string") {
-    return primary
-  }
-
-  if (typeof fallback === "string") {
-    return fallback
-  }
-
-  return null
-}
-
-function preferNumber(
-  primary: number | null | undefined,
-  fallback: number | null | undefined
-): number | null {
-  if (primary !== null && primary !== undefined) {
-    return primary
-  }
-
-  if (fallback !== null && fallback !== undefined) {
-    return fallback
-  }
-
-  return null
-}
-
 const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"] as const
 
 function toScreenerQuote(symbol: string): ScreenerQuote {
