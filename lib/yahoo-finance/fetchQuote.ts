@@ -2,16 +2,22 @@ import { unstable_noStore as noStore } from "next/cache"
 
 import type { Quote } from "@/types/yahoo-finance"
 
-import { fetchFmpQuote } from "@/lib/fmp/quotes"
-import { isFmpApiAvailable } from "@/lib/fmp/client"
-
-import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 
+export function normalizeTicker(ticker: string): string {
+  if (typeof ticker !== "string") {
+    return ""
+  }
+
+  return ticker.trim().toUpperCase()
+}
+
 function createEmptyQuote(ticker: string): Quote {
+  const normalizedTicker = normalizeTicker(ticker) || ticker
+
   return {
-    symbol: ticker,
-    shortName: ticker,
+    symbol: normalizedTicker,
+    shortName: normalizedTicker,
     regularMarketPrice: null,
     regularMarketChange: null,
     regularMarketChangePercent: null,
@@ -41,10 +47,11 @@ function createEmptyQuote(ticker: string): Quote {
 
 export function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
+  const symbol = normalizeTicker(response?.symbol ?? "")
 
   return {
-    symbol: response?.symbol ?? "",
-    shortName: response?.shortName ?? response?.symbol ?? "",
+    symbol,
+    shortName: response?.shortName ?? response?.symbol ?? symbol,
     regularMarketPrice: response?.regularMarketPrice ?? null,
     regularMarketChange: response?.regularMarketChange ?? null,
     regularMarketChangePercent: response?.regularMarketChangePercent ?? null,
@@ -76,13 +83,7 @@ export function normalizeYahooQuote(response: any): Quote {
   }
 }
 
-type QuoteApiResponse = {
-  quoteResponse?: {
-    result?: any[]
-  }
-}
-
-async function fetchWithYahooFinanceLibrary(
+async function fetchYahooQuotes(
   symbols: string[]
 ): Promise<Map<string, Quote>> {
   if (symbols.length === 0) {
@@ -103,111 +104,89 @@ async function fetchWithYahooFinanceLibrary(
   } catch (error) {
     console.warn("yahoo-finance2 batch quote lookup failed", error)
 
-    const quotes = await Promise.all(
-      symbols.map(async (symbol) => {
-        try {
-          const single = await yahooFinance.quote(symbol)
+    const fallbackMap = new Map<string, Quote>()
 
-          return normalizeYahooQuote(single)
-        } catch (singleError) {
-          console.warn(
-            `yahoo-finance2 quote lookup failed for ${symbol}`,
-            singleError
-          )
-          return null
+    for (const symbol of symbols) {
+      try {
+        const single = await yahooFinance.quote(symbol)
+        const quote = normalizeYahooQuote(single)
+
+        if (quote.symbol) {
+          fallbackMap.set(quote.symbol, quote)
         }
-      })
-    )
-
-    return new Map(
-      quotes
-        .filter((quote): quote is Quote => quote !== null && Boolean(quote.symbol))
-        .map((quote) => [quote.symbol, quote] as const)
-    )
-  }
-}
-
-async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> {
-  if (symbols.length === 0) {
-    return new Map()
-  }
-
-  try {
-    const data = await yahooFinanceFetch<QuoteApiResponse>("v7/finance/quote", {
-      symbols: symbols.join(","),
-      region: "US",
-      lang: "en-US",
-    })
-
-    const results = Array.isArray(data.quoteResponse?.result)
-      ? data.quoteResponse?.result
-      : []
-
-    const quoteMap = new Map(
-      results
-        .map((item) => normalizeYahooQuote(item))
-        .filter((quote) => quote.symbol)
-        .map((quote) => [quote.symbol, quote] as const)
-    )
-
-    if (quoteMap.size > 0) {
-      return quoteMap
+      } catch (singleError) {
+        console.warn(
+          `yahoo-finance2 quote lookup failed for ${symbol}`,
+          singleError
+        )
+      }
     }
-  } catch (error) {
-    console.warn("Failed to fetch Yahoo quotes", error)
+
+    return fallbackMap
   }
-
-  const libraryQuotes = await fetchWithYahooFinanceLibrary(symbols)
-
-  if (libraryQuotes.size > 0) {
-    return libraryQuotes
-  }
-
-  return new Map()
 }
 
 export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
   noStore()
 
-  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
-  const yahooQuote = yahooQuotes.get(tickerSymbol)
+  const normalizedTicker = normalizeTicker(tickerSymbol)
+  const lookupSymbols = Array.from(
+    new Set(
+      [normalizedTicker, tickerSymbol]
+        .map((value) => normalizeTicker(value))
+        .filter((value) => value)
+    )
+  )
+
+  const yahooQuotes = await fetchYahooQuotes(lookupSymbols)
+  const yahooQuote = lookupSymbols
+    .map((symbol) => yahooQuotes.get(symbol))
+    .find((quote): quote is Quote => Boolean(quote))
+
   if (yahooQuote) {
     return yahooQuote
   }
 
-  if (isFmpApiAvailable()) {
-    try {
-      const fmpQuote = await fetchFmpQuote(tickerSymbol)
-      if (fmpQuote) {
-        return fmpQuote
-      }
-    } catch (error) {
-      console.warn(`FMP quote lookup failed for ${tickerSymbol}`, error)
-    }
-  }
-
-  return createEmptyQuote(tickerSymbol)
+  return createEmptyQuote(normalizedTicker || tickerSymbol)
 }
 
 export const loadQuotesForSymbols = async (
   tickers: string[]
 ): Promise<Map<string, Quote>> => {
-  const uniqueTickers = Array.from(new Set(tickers))
-  const quotes = await fetchYahooQuotes(uniqueTickers)
+  const uniqueNormalizedTickers = Array.from(
+    new Set(
+      tickers
+        .map((ticker) => normalizeTicker(ticker))
+        .filter((ticker) => ticker)
+    )
+  )
 
-  const unresolvedTickers = uniqueTickers.filter((ticker) => !quotes.has(ticker))
+  const quotes = await fetchYahooQuotes(uniqueNormalizedTickers)
 
-  for (const ticker of unresolvedTickers) {
-    try {
-      const fallbackQuote = await fetchQuote(ticker)
+  const resolvedQuotes = new Map<string, Quote>()
 
-      if (fallbackQuote) {
-        quotes.set(ticker, fallbackQuote)
-      }
-    } catch (error) {
-      console.warn(`Failed to hydrate quote for ${ticker}`, error)
+  const registerQuote = (key: string, quote: Quote) => {
+    if (!key || resolvedQuotes.has(key)) {
+      return
+    }
+
+    resolvedQuotes.set(key, quote)
+  }
+
+  quotes.forEach((quote, key) => {
+    registerQuote(key, quote)
+    registerQuote(normalizeTicker(key), quote)
+  })
+
+  for (const ticker of tickers) {
+    const normalized = normalizeTicker(ticker)
+    const quote = quotes.get(normalized)
+
+    if (quote) {
+      registerQuote(ticker, quote)
+      registerQuote(normalized, quote)
     }
   }
 
-  return quotes
+  return resolvedQuotes
 }
