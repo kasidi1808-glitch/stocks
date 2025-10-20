@@ -6,8 +6,16 @@ import { yahooFinanceFetch } from "./client"
 import yahooFinance from "yahoo-finance2"
 import { getOfflineQuote, getOfflineQuotes } from "@/data/offlineQuotes"
 
+export function normalizeTicker(ticker: string): string {
+  if (typeof ticker !== "string") {
+    return ""
+  }
+
+  return ticker.trim().toUpperCase()
+}
+
 function createEmptyQuote(ticker: string): Quote {
-  const normalizedTicker = normalizeTicker(ticker)
+  const normalizedTicker = normalizeTicker(ticker) || ticker
 
   return {
     symbol: normalizedTicker,
@@ -67,6 +75,7 @@ function asFiniteNumber(value: unknown): number | null {
 
 export function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
+  const symbol = normalizeTicker(response?.symbol ?? "")
 
   const regularMarketPrice = asFiniteNumber(response?.regularMarketPrice)
   const trailingEps = asFiniteNumber(response?.trailingEps)
@@ -87,9 +96,8 @@ export function normalizeYahooQuote(response: any): Quote {
   }
 
   return {
-    symbol: response?.symbol ?? "",
-    shortName: response?.shortName ?? response?.symbol ?? "",
-    marketState: typeof response?.marketState === "string" ? response.marketState : null,
+    symbol,
+    shortName: response?.shortName ?? response?.symbol ?? symbol,
     regularMarketPrice: response?.regularMarketPrice ?? null,
     regularMarketChange: response?.regularMarketChange ?? null,
     regularMarketChangePercent: response?.regularMarketChangePercent ?? null,
@@ -224,58 +232,56 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Quote>> 
 export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
   noStore()
 
-  const yahooQuotes = await fetchYahooQuotes([tickerSymbol])
-  const normalizedTicker = tickerSymbol.trim()
-  const yahooQuote =
-    yahooQuotes.get(normalizedTicker) ??
-    yahooQuotes.get(normalizedTicker.toUpperCase()) ??
-    yahooQuotes.get(normalizedTicker.toLowerCase()) ??
-    yahooQuotes.get(tickerSymbol)
+  const normalizedTicker = normalizeTicker(tickerSymbol)
+  const lookupSymbols = Array.from(
+    new Set(
+      [normalizedTicker, tickerSymbol]
+        .map((value) => normalizeTicker(value) || value)
+        .filter((value) => value)
+    )
+  )
+
+  const yahooQuotes = await fetchYahooQuotes(lookupSymbols)
+  const yahooQuote = lookupSymbols
+    .map((symbol) => yahooQuotes.get(symbol))
+    .find((quote): quote is Quote => Boolean(quote))
+
   if (yahooQuote) {
     return yahooQuote
   }
 
-  return createEmptyQuote(tickerSymbol)
+  return createEmptyQuote(normalizedTicker || tickerSymbol)
 }
 
 export async function loadQuotesForSymbols(
   tickers: string[]
 ): Promise<Map<string, Quote>> => {
-  const uniqueTickers = Array.from(new Set(tickers.map((ticker) => ticker.trim())))
-  const quotes = await fetchYahooQuotes(uniqueTickers)
-
-  const stillMissing = uniqueTickers.filter((ticker) => {
-    const normalized = ticker.trim()
-    return (
-      !quotes.has(normalized) &&
-      !quotes.has(normalized.toUpperCase()) &&
-      !quotes.has(normalized.toLowerCase())
+  const uniqueNormalizedTickers = Array.from(
+    new Set(
+      tickers
+        .map((ticker) => normalizeTicker(ticker))
+        .filter((ticker) => ticker)
     )
-  })
+  )
+
+  const quotes = await fetchYahooQuotes(uniqueNormalizedTickers)
+
+  const stillMissing = uniqueNormalizedTickers.filter(
+    (ticker) => !quotes.has(ticker)
+  )
 
   for (const ticker of stillMissing) {
     try {
       const fallbackQuote = await fetchQuote(ticker)
 
-  const fallbackEntries = await Promise.all(
-    missingTickers.map(async (ticker) => {
-      try {
-        const fallbackQuote = await fetchQuote(ticker)
-        const normalizedSymbol = normalizeTicker(fallbackQuote.symbol) || ticker
+      if (fallbackQuote) {
+        const normalizedSymbol = normalizeTicker(
+          fallbackQuote.symbol ?? ticker
+        )
 
-        return [normalizedSymbol, fallbackQuote] as const
-      } catch (error) {
-        console.warn(`Failed to hydrate quote for ${ticker}`, error)
-        const offlineQuote = getOfflineQuote(ticker)
-
-        if (offlineQuote) {
-          return [
-            normalizeTicker(offlineQuote.symbol) || ticker,
-            applyDisplayMetrics(offlineQuote),
-          ] as const
+        if (normalizedSymbol) {
+          quotes.set(normalizedSymbol, fallbackQuote)
         }
-
-        return null
       }
     })
   )
@@ -289,5 +295,30 @@ export async function loadQuotesForSymbols(
     quotes.set(symbol, quote)
   }
 
-  return quotes
+  const resolvedQuotes = new Map<string, Quote>()
+
+  const registerQuote = (key: string, quote: Quote) => {
+    if (!key || resolvedQuotes.has(key)) {
+      return
+    }
+
+    resolvedQuotes.set(key, quote)
+  }
+
+  quotes.forEach((quote, key) => {
+    registerQuote(key, quote)
+    registerQuote(normalizeTicker(key), quote)
+  })
+
+  for (const ticker of tickers) {
+    const normalized = normalizeTicker(ticker)
+    const quote = quotes.get(normalized)
+
+    if (quote) {
+      registerQuote(ticker, quote)
+      registerQuote(normalized, quote)
+    }
+  }
+
+  return resolvedQuotes
 }
