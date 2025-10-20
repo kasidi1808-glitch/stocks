@@ -1,8 +1,28 @@
 import { cn } from "@/lib/utils"
 import { fetchChartData } from "@/lib/yahoo-finance/fetchChartData"
-import type { Interval, Range } from "@/types/yahoo-finance"
+import type { Interval, Quote, Range } from "@/types/yahoo-finance"
 import AreaClosedChart from "./AreaClosedChart"
 import { fetchQuote } from "@/lib/yahoo-finance/fetchQuote"
+import {
+  getDisplayMetrics,
+  type QuoteDisplayMetrics,
+} from "@/lib/markets/displayMetrics"
+
+function resolveDisplayMetrics(quote: Quote): QuoteDisplayMetrics {
+  if (
+    Object.prototype.hasOwnProperty.call(quote, "displayPrice") &&
+    quote.displayPrice !== undefined
+  ) {
+    return {
+      price: quote.displayPrice ?? null,
+      change: quote.displayChange ?? null,
+      changePercent: quote.displayChangePercent ?? null,
+      source: quote.displaySource ?? "regular",
+    }
+  }
+
+  return getDisplayMetrics(quote)
+}
 
 interface StockGraphProps {
   ticker: string
@@ -18,9 +38,15 @@ const rangeTextMapping = {
   "1y": "Past Year",
 }
 
-function calculatePriceChange(qouteClose: number, currentPrice: number) {
-  const firstItemPrice = qouteClose || 0
-  return ((currentPrice - firstItemPrice) / firstItemPrice) * 100
+function calculatePriceChange(
+  quoteClose: number | null,
+  currentPrice: number | null
+): number | null {
+  if (quoteClose === null || quoteClose === 0 || currentPrice === null) {
+    return null
+  }
+
+  return ((currentPrice - quoteClose) / quoteClose) * 100
 }
 
 export default async function StockChart({
@@ -28,17 +54,26 @@ export default async function StockChart({
   range,
   interval,
 }: StockGraphProps) {
-  const chartData = await fetchChartData(ticker, range, interval)
-  const quoteData = await fetchQuote(ticker)
+  const [chart, quote] = await Promise.all([
+    fetchChartData(ticker, range, interval),
+    fetchQuote(ticker),
+  ])
 
-  const [chart, quote] = await Promise.all([chartData, quoteData])
+  const displayMetrics = resolveDisplayMetrics(quote)
+  const displayPrice = displayMetrics.price
 
   const priceChange =
-    chart.quotes.length &&
-    calculatePriceChange(
-      Number(chart.quotes[0].close),
-      Number(chart.meta.regularMarketPrice)
-    )
+    chart.quotes.length > 0
+      ? calculatePriceChange(
+          Number.isFinite(chart.quotes[0].close)
+            ? Number(chart.quotes[0].close)
+            : null,
+          displayPrice ??
+            (Number.isFinite(chart.meta.regularMarketPrice)
+              ? Number(chart.meta.regularMarketPrice)
+              : null)
+        )
+      : null
 
   const ChartQuotes = chart.quotes
     .map((quote) => ({
@@ -51,14 +86,14 @@ export default async function StockChart({
     <div className="h-[27.5rem] w-full">
       <div>
         <div className="space-x-1 text-muted-foreground">
-          <span className="font-bold text-primary">{quoteData.symbol}</span>
+          <span className="font-bold text-primary">{quote.symbol}</span>
           <span>·</span>
           <span>
-            {quoteData.fullExchangeName === "NasdaqGS"
+            {quote.fullExchangeName === "NasdaqGS"
               ? "NASDAQ"
-              : quoteData.fullExchangeName}
+              : quote.fullExchangeName}
           </span>
-          <span>{quoteData.shortName}</span>
+          <span>{quote.shortName}</span>
         </div>
 
         <div className="flex flex-row items-end justify-between">
@@ -66,20 +101,26 @@ export default async function StockChart({
             <span className="text-nowrap">
               <span className="text-xl font-bold">
                 {quote.currency === "USD" ? "$" : ""}
-                {quote.regularMarketPrice?.toFixed(2)}
+                {typeof displayPrice === "number"
+                  ? displayPrice.toFixed(2)
+                  : "N/A"}
               </span>
+              {displayMetrics.source !== "regular" && (
+                <span className="ml-2 text-xs uppercase text-muted-foreground">
+                  {displayMetrics.source === "post" ? "Post-Market" : "Pre-Market"}
+                </span>
+              )}
               <span className="font-semibold">
-                {quote.regularMarketChange != null &&
-                quote.regularMarketChangePercent != null ? (
-                  quote.regularMarketChange > 0 ? (
+                {displayMetrics.change != null && displayMetrics.changePercent != null ? (
+                  displayMetrics.change > 0 ? (
                     <span className="text-green-800 dark:text-green-400">
-                      +{quote.regularMarketChange.toFixed(2)} (+
-                      {quote.regularMarketChangePercent.toFixed(2)}%)
+                      +{displayMetrics.change.toFixed(2)} (+
+                      {displayMetrics.changePercent.toFixed(2)}%)
                     </span>
                   ) : (
                     <span className="text-red-800 dark:text-red-500">
-                      {quote.regularMarketChange.toFixed(2)} (
-                      {quote.regularMarketChangePercent.toFixed(2)}%)
+                      {displayMetrics.change.toFixed(2)} (
+                      {displayMetrics.changePercent.toFixed(2)}%)
                     </span>
                   )
                 ) : null}
@@ -139,7 +180,7 @@ export default async function StockChart({
             </span>
           </div>
           <span className="space-x-1 whitespace-nowrap font-semibold">
-            {priceChange !== 0 && rangeTextMapping[range] !== "" && (
+            {priceChange !== null && priceChange !== 0 && rangeTextMapping[range] !== "" && (
               <span
                 className={cn(
                   priceChange > 0
