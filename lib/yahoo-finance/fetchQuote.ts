@@ -3,6 +3,15 @@ import { unstable_noStore as noStore } from "next/cache"
 import type { Quote } from "@/types/yahoo-finance"
 
 import yahooFinance from "yahoo-finance2"
+import { getOfflineQuote, getOfflineQuotes } from "@/data/offlineQuotes"
+
+export function normalizeTicker(ticker: string): string {
+  if (typeof ticker !== "string") {
+    return ""
+  }
+
+  return ticker.trim().toUpperCase()
+}
 
 export function normalizeTicker(ticker: string): string {
   if (typeof ticker !== "string") {
@@ -38,11 +47,37 @@ function createEmptyQuote(ticker: string): Quote {
     postMarketPrice: null,
     postMarketChange: null,
     postMarketChangePercent: null,
+    postMarketTime: null,
     preMarketPrice: null,
     preMarketChange: null,
     preMarketChangePercent: null,
+    preMarketTime: null,
     hasPrePostMarketData: false,
+  })
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
   }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return applyDisplayMetrics(emptyQuote)
 }
 
 export function normalizeYahooQuote(response: any): Quote {
@@ -64,8 +99,8 @@ export function normalizeYahooQuote(response: any): Quote {
     averageDailyVolume3Month: response?.averageDailyVolume3Month ?? null,
     regularMarketOpen: response?.regularMarketOpen ?? null,
     regularMarketPreviousClose: response?.regularMarketPreviousClose ?? null,
-    trailingEps: response?.trailingEps ?? null,
-    trailingPE: response?.trailingPE ?? null,
+    trailingEps,
+    trailingPE,
     fullExchangeName: response?.fullExchangeName ?? null,
     currency: response?.currency ?? null,
     regularMarketTime:
@@ -75,9 +110,17 @@ export function normalizeYahooQuote(response: any): Quote {
     postMarketPrice: response?.postMarketPrice ?? null,
     postMarketChange: response?.postMarketChange ?? null,
     postMarketChangePercent: response?.postMarketChangePercent ?? null,
+    postMarketTime:
+      typeof response?.postMarketTime === "number" && Number.isFinite(response.postMarketTime)
+        ? response.postMarketTime
+        : null,
     preMarketPrice: response?.preMarketPrice ?? null,
     preMarketChange: response?.preMarketChange ?? null,
     preMarketChangePercent: response?.preMarketChangePercent ?? null,
+    preMarketTime:
+      typeof response?.preMarketTime === "number" && Number.isFinite(response.preMarketTime)
+        ? response.preMarketTime
+        : null,
     hasPrePostMarketData:
       response?.postMarketPrice != null || response?.preMarketPrice != null,
   }
@@ -90,19 +133,24 @@ async function fetchYahooQuotes(
     return new Map()
   }
 
-  try {
-    const response = await yahooFinance.quote(symbols, { return: "array" })
+  const populateMissingQuotes = async (
+    existing: Map<string, Quote>,
+    remainingSymbols: string[]
+  ) => {
+    if (remainingSymbols.length === 0) {
+      return existing
+    }
 
-    const quotesArray = Array.isArray(response) ? response : [response]
+    const additionalEntries = await Promise.all(
+      remainingSymbols.map(async (symbol) => {
+        try {
+          const result = await yahooFinance.quote(symbol, {}, { validateResult: false })
 
-    return new Map(
-      quotesArray
-        .map((item) => normalizeYahooQuote(item))
-        .filter((quote) => quote.symbol)
-        .map((quote) => [quote.symbol, quote] as const)
-    )
-  } catch (error) {
-    console.warn("yahoo-finance2 batch quote lookup failed", error)
+          if (!result) {
+            return null
+          }
+
+          const normalized = applyDisplayMetrics(normalizeYahooQuote(result))
 
     const fallbackMap = new Map<string, Quote>()
 
@@ -126,7 +174,7 @@ async function fetchYahooQuotes(
   }
 }
 
-export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
+export async function fetchQuote(tickerSymbol: string): Promise<Quote> {
   noStore()
 
   const normalizedTicker = normalizeTicker(tickerSymbol)
@@ -150,7 +198,7 @@ export const fetchQuote = async (tickerSymbol: string): Promise<Quote> => {
   return createEmptyQuote(normalizedTicker || tickerSymbol)
 }
 
-export const loadQuotesForSymbols = async (
+export async function loadQuotesForSymbols(
   tickers: string[]
 ): Promise<Map<string, Quote>> => {
   const uniqueNormalizedTickers = Array.from(

@@ -1,6 +1,3 @@
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
 import AutoRefresh from "@/components/AutoRefresh"
 import MarketsChart from "@/components/chart/MarketsChart"
 import SectorPerformance from "@/components/stocks/SectorPerformance"
@@ -25,6 +22,7 @@ import {
 } from "@/lib/yahoo-finance/fetchChartData"
 import { fetchStockSearch } from "@/lib/yahoo-finance/fetchStockSearch"
 import type { Interval, Quote } from "@/types/yahoo-finance"
+import { getDisplayMetrics } from "@/lib/markets/displayMetrics"
 import Link from "next/link"
 import { Suspense } from "react"
 
@@ -57,37 +55,6 @@ function isMarketOpen() {
   }
 }
 
-function formatNewsTimestamp(
-  publishTime?: Date | string | number | null
-): string | null {
-  if (!publishTime) {
-    return null
-  }
-
-  const publishedDate =
-    publishTime instanceof Date ? publishTime : new Date(publishTime)
-
-  if (Number.isNaN(publishedDate.getTime())) {
-    return null
-  }
-
-  const diffMs = publishedDate.getTime() - Date.now()
-  const diffMinutes = Math.round(diffMs / (1000 * 60))
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
-
-  if (Math.abs(diffMinutes) < 60) {
-    return rtf.format(diffMinutes, "minute")
-  }
-
-  const diffHours = Math.round(diffMinutes / 60)
-  if (Math.abs(diffHours) < 24) {
-    return rtf.format(diffHours, "hour")
-  }
-
-  const diffDays = Math.round(diffHours / 24)
-  return rtf.format(diffDays, "day")
-}
-
 function getMarketSentiment(changePercentage: number | undefined) {
   if (!changePercentage) {
     return "neutral"
@@ -114,29 +81,26 @@ export default async function Home({
     ? REGULAR_MARKET_INSTRUMENTS
     : PRE_MARKET_INSTRUMENTS
 
-  const fallbackInstrument = instruments[0]
-  const requestedTicker = searchParams?.ticker
-  const selectedInstrument =
-    instruments.find((instrument) => instrument.symbol === requestedTicker) ??
-    fallbackInstrument
-  const ticker = selectedInstrument.symbol
-  const newsTicker = selectedInstrument.newsSymbol ?? selectedInstrument.symbol
+  const ticker = searchParams?.ticker || instruments[0].symbol
+  const selectedInstrument = instruments.find(
+    (instrument) => instrument.symbol === ticker
+  )
   const range = validateRange(searchParams?.range || DEFAULT_RANGE)
   const interval = validateInterval(
     range,
     (searchParams?.interval as Interval) || DEFAULT_INTERVAL
   )
-  const news = await fetchStockSearch(newsTicker, 3)
+  const news = await fetchStockSearch("^DJI", 1)
   const firstNews = news.news?.[0]
-  const firstNewsTimestamp = formatNewsTimestamp(
-    firstNews?.providerPublishTime ?? null
-  )
 
   const marketQuotes: Quote[] = await fetchMarketSnapshot(instruments)
 
-  const marketSentiment = getMarketSentiment(
-    marketQuotes[0]?.regularMarketChangePercent ?? undefined
-  )
+  const firstQuote = marketQuotes[0]
+  const firstChangePercent =
+    firstQuote?.displayChangePercent ??
+    (firstQuote ? getDisplayMetrics(firstQuote).changePercent ?? undefined : undefined)
+
+  const marketSentiment = getMarketSentiment(firstChangePercent)
 
   const sentimentColor =
     marketSentiment === "bullish"
@@ -154,7 +118,7 @@ export default async function Home({
 
   return (
     <div className="flex flex-col gap-4">
-      <AutoRefresh intervalMs={45_000} />
+      <AutoRefresh intervalMs={60_000} />
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="w-full lg:w-1/2">
           <Card className="relative flex h-full min-h-[15rem] flex-col justify-between overflow-hidden">
@@ -167,7 +131,7 @@ export default async function Home({
             {firstNews && firstNews.title && (
               <CardFooter className="flex-col items-start">
                 <p className="mb-2 text-sm font-semibold text-neutral-500 dark:text-neutral-500">
-                  Latest on {selectedInstrument.shortName}
+                  What you need to know today
                 </p>
                 <Link
                   prefetch={false}
@@ -176,15 +140,6 @@ export default async function Home({
                 >
                   {firstNews.title}
                 </Link>
-                {(firstNews.publisher || firstNewsTimestamp) && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {firstNews.publisher && <span>{firstNews.publisher}</span>}
-                    {firstNews.publisher && firstNewsTimestamp && (
-                      <span aria-hidden="true"> • </span>
-                    )}
-                    {firstNewsTimestamp}
-                  </p>
-                )}
               </CardFooter>
             )}
             <div
@@ -219,7 +174,7 @@ export default async function Home({
                 ticker={ticker}
                 range={range}
                 interval={interval}
-                displayName={selectedInstrument.shortName}
+                displayName={selectedInstrument?.shortName}
               />
             </Suspense>
           </div>
