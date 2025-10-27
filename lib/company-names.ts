@@ -61,11 +61,11 @@ function registerCompanyName(symbol: string, name: string) {
     altSymbols.add(symbolKey.replace(/\./g, "-"))
   }
 
-  for (const alt of altSymbols) {
+  altSymbols.forEach((alt) => {
     if (!COMPANY_NAME_MAP.has(alt)) {
       COMPANY_NAME_MAP.set(alt, normalizedName)
     }
-  }
+  })
 }
 
 for (const [symbol, name] of Object.entries(curatedNames)) {
