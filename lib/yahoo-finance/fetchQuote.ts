@@ -80,6 +80,14 @@ function asFiniteNumber(value: unknown): number | null {
   return applyDisplayMetrics(emptyQuote)
 }
 
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return null
+}
+
 export function normalizeYahooQuote(response: any): Quote {
   const regularMarketTime = response?.regularMarketTime
   const symbol = normalizeTicker(response?.symbol ?? "")
